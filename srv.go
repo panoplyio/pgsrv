@@ -2,6 +2,7 @@ package postgressrv
 
 import (
     "net"
+    "database/sql/driver"
 )
 
 // implements the Server interface
@@ -14,8 +15,8 @@ func New(queryer Queryer) Server {
 }
 
 // implements Queryer
-func (s *server) Query(q Query) error {
-    return s.queryer.Query(q)
+func (s *server) Query(sql string, args []driver.Value) (driver.Rows, error) {
+    return s.queryer.Query(sql, args)
 }
 
 func (s *server) Listen(laddr string) error {

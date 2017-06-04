@@ -3,28 +3,13 @@ package postgressrv
 import (
     "fmt"
     "net"
+    "database/sql/driver"
 )
 
 var Logf = fmt.Printf
 var Errf = fmt.Errorf
 
-type Column interface {
-    Name() string
-    TypeOid() uint
-    TypeSize() uint16
-    TypeModifier() uint32
-}
-
-type Query interface {
-    Session() Session
-    SQL() string
-    WriteColumns(...Column) error
-    WriteRow(...[]byte) error
-}
-
-type Queryer interface {
-    Query(q Query) error
-}
+type Queryer driver.Queryer
 
 type Session interface {
     Queryer
