@@ -38,7 +38,7 @@ func (q *query) WriteColumns(cols ...Column) error {
     }
 
     q.numCols = len(cols)
-    return s.session.Write(RowDescriptionMsg(cols))
+    return q.session.Write(RowDescriptionMsg(cols))
 }
 
 // See Query
@@ -47,10 +47,10 @@ func (q *query) WriteRow(row ...[]byte) error {
         return Errf("Cannot call WriteRow() before calling WriteColumns()")
     }
 
-    if len(cells) != q.numCols {
+    if len(row) != q.numCols {
         return Errf("Mismatching number of columns in row. Want %d ; have %d",
-            q.numCols, len(cells))
+            q.numCols, len(row))
     }
 
-    return s.session.Write(DataRowMsg(row))
+    return q.session.Write(DataRowMsg(row))
 }

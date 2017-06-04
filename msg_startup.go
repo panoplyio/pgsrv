@@ -68,18 +68,6 @@ func (m Msg) IsTLSRequest() bool {
     return v == "1234.5679"
 }
 
-// IsInternal determines if this startup message is actually a peer node
-// connecting for internal communication. We're keeping with Postgre's current
-// approach of using a special version number. NOTE that internal connections
-// do not use the standard postgres protocol.
-func (m Msg) IsInternal() bool {
-    if m.Type() != 0 {
-        return false
-    }
-
-    return string(m[4:]) == "EP01"
-}
-
 // IsTerminate determines if the current message is a notification that the
 // client has terminated the connection upon user-request.
 func (m Msg) IsTerminate() bool {

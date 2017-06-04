@@ -1,4 +1,4 @@
-package srv
+package postgressrv
 
 import (
     "encoding/binary"
@@ -15,12 +15,12 @@ func (m Msg) QueryText() (string, error) {
 
 // RowDescriptionMsg is a message indicating that DataRow messages are about to
 // be transmitted and delivers their schema (column names/types)
-func RowDescriptionMsg(cols []*ep.Column) Msg {
+func RowDescriptionMsg(cols []Column) Msg {
     msg := []byte{'T', /* LEN = */ 0, 0, 0, 0, /* NUM FIELDS = */ 0, 0}
     binary.BigEndian.PutUint16(msg[5:], uint16(len(cols)))
 
     for _, c := range cols {
-        msg = append(msg, []byte(c.Name)...)
+        msg = append(msg, []byte(c.Name())...)
         msg = append(msg, 0) // NULL TERMINATED
 
         msg = append(msg, 0, 0, 0, 0) // object ID of the table; otherwise zero
@@ -28,7 +28,7 @@ func RowDescriptionMsg(cols []*ep.Column) Msg {
 
         // object ID of the field's data type
         oid := []byte{0,0,0,0}
-        binary.BigEndian.PutUint32(oid, uint32(c.Type.Oid()))
+        binary.BigEndian.PutUint32(oid, uint32(c.TypeOid()))
         msg = append(msg, oid...)
         msg = append(msg, 0, 0) // data type size
         msg = append(msg, 0, 0, 0, 0) // type modifier
@@ -40,12 +40,12 @@ func RowDescriptionMsg(cols []*ep.Column) Msg {
     return msg
 }
 
-func DataRowMsg(vals []string) Msg {
+func DataRowMsg(vals [][]byte) Msg {
     msg := []byte{'D', /* LEN = */ 0, 0, 0, 0, /* NUM VALS = */ 0, 0}
     binary.BigEndian.PutUint16(msg[5:], uint16(len(vals)))
 
     for _, v := range vals {
-        b := append(make([]byte, 4), []byte(v)...)
+        b := append(make([]byte, 4), v...)
         binary.BigEndian.PutUint32(b[0:4], uint32(len(b) - 4))
         msg = append(msg, b...)
     }
@@ -75,16 +75,17 @@ func ErrMsg(err error) Msg {
         "M": err.Error(),
     }
 
-    epErr, ok := err.(*ep.Err)
+    // error code
+    errCode, ok := err.(ErrCoder)
     if ok {
-        if epErr.Hint != "" {
-            fields["H"] = epErr.Hint
-        }
-        if epErr.Code != "" {
-            fields["C"] = epErr.Code
-        }
+        fields["C"] = errCode.Code()
     }
 
+    // hint
+    errHint, ok := err.(ErrHinter)
+    if ok {
+        fields["H"] = errHint.Hint()
+    }
 
     for k, v := range fields {
         msg = append(msg, byte(k[0]))

@@ -6,7 +6,7 @@ import (
     "math/rand"
 )
 
-var AllSessions = map[int32]*Session{}
+var AllSessions = map[int32]*session{}
 
 // Session represents a single client-connection, and handles all of the
 // communications with that client.
@@ -34,11 +34,6 @@ func (s *session) Serve() error {
     msg, err := s.Read()
     if err != nil {
         return err
-    }
-
-    if msg.IsInternal() {
-        // internal message, delegate.
-        return s.Server.Handler(s.Conn)
     }
 
     if msg.IsCancel() {

@@ -1,7 +1,6 @@
 package postgressrv
 
 import (
-    "fmt"
     "net"
 )
 
@@ -36,7 +35,7 @@ func (s *server) Listen(laddr string) error {
     }
 }
 
-func (s *server) Serve(conn net.Conn) {
+func (s *server) Serve(conn net.Conn) error {
     defer conn.Close()
 
     Logf("CONNECTED %s\n", conn.RemoteAddr())
@@ -45,4 +44,5 @@ func (s *server) Serve(conn net.Conn) {
     if err != nil {
         Logf("ERROR Serve %s: %s\n", conn.RemoteAddr(), err.Error())
     }
+    return err
 }

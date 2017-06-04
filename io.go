@@ -17,7 +17,7 @@ import (
 //
 // This method abstracts away this differentiation, returning the next available
 // message whether it's typed or not.
-func (s *Session) Read() (Msg, error) {
+func (s *session) Read() (Msg, error) {
     typechar := make([]byte, 1)
     if s.initialized {
 
@@ -56,7 +56,7 @@ func (s *Session) Read() (Msg, error) {
 // ReadMsgBody reads the body of the next message in the connection. The body is
 // comprised of an Int32 body-length (N), inclusive of the length itself
 // followed by N-bytes of the actual body.
-func (s *Session) readBody() ([]byte, error) {
+func (s *session) readBody() ([]byte, error) {
 
     // messages starts with an Int32 Length of message contents in bytes,
     // including self.
@@ -83,7 +83,7 @@ func (s *Session) readBody() ([]byte, error) {
 }
 
 // WriteMsg writes the provided msg to the client connection
-func (s *Session) Write(m Msg) error {
+func (s *session) Write(m Msg) error {
     _, err := s.Conn.Write(m)
     return err
 }
