@@ -1,2 +1,2 @@
 # postgres-srv
-Postgres Server protocol implementation in Go
+Postgres Server (incomplete) protocol implementation in Go
