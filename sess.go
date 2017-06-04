@@ -13,8 +13,8 @@ var AllSessions = map[int32]*Session{}
 //
 // see: https://www.postgresql.org/docs/9.2/static/protocol.html
 // for postgres protocol and startup handshake process
-type Session struct {
-    Server *Server
+type session struct {
+    Server Server
     Conn net.Conn
     Args map[string]string
     Secret int32 // used for cancelling requests
@@ -23,8 +23,12 @@ type Session struct {
     initialized bool
 }
 
+func (s *session) Query(q Query) error {
+    return s.Server.Query(q)
+}
+
 // Handle a connection session
-func (s *Session) Serve() error {
+func (s *session) Serve() error {
 
     // read the initial connection startup message
     msg, err := s.Read()
@@ -101,13 +105,13 @@ func (s *Session) Serve() error {
 
     // notify the client of the pid and secret to be passed back when it wishes
     // to interrupt this session
+    s.Ctx, s.CancelFunc = context.WithCancel(context.Background())
     err = s.Write(KeyDataMsg(pid, s.Secret))
     if err != nil {
         return err
     }
 
     // query-cycle
-    s.Ctx, s.CancelFunc = context.WithCancel(context.Background())
     s.initialized = true
     for {
         // notify the client that we're ready for more messages.
@@ -127,6 +131,7 @@ func (s *Session) Serve() error {
         }
 
         if msg.Type() != 'Q' {
+            // TODO implement other message types
             Logf("MESSAGE TYPE = %q\n", msg.Type())
         }
 
@@ -135,62 +140,12 @@ func (s *Session) Serve() error {
             return err
         }
 
-        err = s.Query(sql)
+        q := &query{session: s, sql: sql}
+        err = q.Run()
         if err != nil {
             return err
         }
     }
 
     return nil
-}
-
-func (s *Session) Query(sql string) (err error) {
-    Logf("SQL > %s\n", sql)
-
-    q, err := s.Server.Runner(s.Ctx, sql)
-    if err != nil {
-        return s.Write(ErrMsg(err))
-    }
-
-    err = s.Write(RowDescriptionMsg(q.Columns()))
-    if err != nil {
-        return s.Write(ErrMsg(err))
-    }
-
-    // kick it off.
-    inp := make(chan ep.Dataset)
-    out := make(chan ep.Dataset)
-    go func() {
-        defer close(out)
-        err = q.Run(s.Ctx, inp, out)
-    }()
-
-    // seed it with one value to kick things off.
-    inp <- ep.Dataset{ep.Null.New(1)}
-    close(inp)
-
-    for data := range out {
-        strings := make([][]string, data.Width())
-        for i, d := range data {
-            strings[i] = d.ToStrings()
-        }
-
-        row := make([]string, data.Width())
-        for i := 0; i < data.Len(); i++ {
-            for j := 0; j < data.Width(); j++ {
-                row[j] = strings[j][i]
-            }
-
-            err = s.Write(DataRowMsg(row))
-            if err != nil {
-                return err
-            }
-        }
-    }
-
-    if err != nil {
-        return s.Write(ErrMsg(err))
-    } else {
-        return s.Write(CompleteMsg("SELECT 1"))
-    }
 }

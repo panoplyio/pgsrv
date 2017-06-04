@@ -5,15 +5,21 @@ import (
     "net"
 )
 
-var Logf = fmt.Printf
-var Errf = fmt.Errorf
-
-type Server struct {
-    Runner func(sql string)
-    Handler func(net.Conn) error
+// implements the Server interface
+type server struct {
+    queryer Queryer
 }
 
-func (s *Server) Listen(laddr string) error {
+func New(queryer Queryer) Server {
+    return &server{queryer}
+}
+
+// implements Queryer
+func (s *server) Query(q Query) error {
+    return s.queryer.Query(q)
+}
+
+func (s *server) Listen(laddr string) error {
     ln, err := net.Listen("tcp", laddr)
     if err != nil {
         return err
@@ -30,18 +36,13 @@ func (s *Server) Listen(laddr string) error {
     }
 }
 
-func (s *Server) Serve(conn net.Conn) {
+func (s *server) Serve(conn net.Conn) {
     defer conn.Close()
 
     Logf("CONNECTED %s\n", conn.RemoteAddr())
-    sess := &Session{Server: s, Conn: conn}
+    sess := &session{Server: s, Conn: conn}
     err := sess.Serve()
     if err != nil {
         Logf("ERROR Serve %s: %s\n", conn.RemoteAddr(), err.Error())
     }
-}
-
-
-type Runner interface {
-    // Run(sql string) chan ep.Dataset
 }
