@@ -17,7 +17,7 @@ func TestOne(t *testing.T) {
     mock.AddRow("hello")
     mock.AddRow("world")
 
-    s := New(&queryer{mock})
+    s := New(mock)
 
     go func() {
         ln, err := net.Listen("tcp", ":5432")
@@ -57,18 +57,6 @@ func TestOne(t *testing.T) {
 
         fmt.Println(v)
     }
-
-    //
-    // cols, err := rows.Columns()
-    // if err != nil {
-    //     t.Fatal(err)
-    // }
-    // t.Logf("ROWS %v", cols)
-}
-
-type queryer struct { rows driver.Rows }
-func (m *queryer) Query(q string, args []driver.Value) (driver.Rows, error) {
-    return m.rows, nil
 }
 
 type rows struct {
@@ -109,4 +97,8 @@ func (rows *rows) AddRow(v string) {
         panic(err)
     }
     rows.rows = append(rows.rows, row)
+}
+
+func (rows *rows) Query(string, []driver.Value) (driver.Rows, error) {
+    return rows, nil
 }
