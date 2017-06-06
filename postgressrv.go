@@ -1,24 +1,18 @@
 package postgressrv
 
 import (
-    "fmt"
     "net"
     "database/sql/driver"
 )
 
-var Logf = fmt.Printf
-var Errf = fmt.Errorf
-
-type Queryer driver.Queryer
-
 type Session interface {
-    Queryer
+    driver.Queryer
     Write(m msg) error
     Read() (msg, error)
 }
 
 type Server interface {
-    Queryer
+    driver.Queryer
 
     // Manually serve a connection
     Serve(net.Conn) error

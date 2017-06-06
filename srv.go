@@ -7,10 +7,10 @@ import (
 
 // implements the Server interface
 type server struct {
-    queryer Queryer
+    queryer driver.Queryer
 }
 
-func New(queryer Queryer) Server {
+func New(queryer driver.Queryer) Server {
     return &server{queryer}
 }
 
@@ -25,7 +25,7 @@ func (s *server) Listen(laddr string) error {
         return err
     }
 
-    Logf("Listening on %s...\n", laddr)
+    // Logf("Listening on %s...\n", laddr)
     for {
         conn, err := ln.Accept()
         if err != nil {
@@ -39,11 +39,11 @@ func (s *server) Listen(laddr string) error {
 func (s *server) Serve(conn net.Conn) error {
     defer conn.Close()
 
-    Logf("CONNECTED %s\n", conn.RemoteAddr())
+    // Logf("CONNECTED %s\n", conn.RemoteAddr())
     sess := &session{Server: s, Conn: conn}
     err := sess.Serve()
     if err != nil {
-        Logf("ERROR Serve %s: %s\n", conn.RemoteAddr(), err.Error())
+        // Logf("ERROR Serve %s: %s\n", conn.RemoteAddr(), err.Error())
     }
     return err
 }

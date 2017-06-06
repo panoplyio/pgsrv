@@ -1,13 +1,14 @@
 package postgressrv
 
 import (
+    "fmt"
     "encoding/binary"
 )
 
 // QueryText returns the SQL query string from a Query or Parse message
 func (m msg) QueryText() (string, error) {
     if m.Type() != 'Q' {
-        return "", Errf("Not a query message: %q", m.Type())
+        return "", fmt.Errorf("Not a query message: %q", m.Type())
     }
 
     return string(m[5:]), nil

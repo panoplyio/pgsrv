@@ -12,7 +12,7 @@ import (
 // version.
 func (m msg) StartupVersion() (string, error) {
     if m.Type() != 0 {
-        return "", Errf("Not an untyped startup message: %q", m.Type())
+        return "", fmt.Errorf("Not an untyped startup message: %q", m.Type())
     }
 
     major := int(binary.BigEndian.Uint16(m[4:6]))
@@ -27,7 +27,7 @@ func (m msg) StartupVersion() (string, error) {
 // of key-values, terminated by a NULL character.
 func (m msg) StartupArgs() (map[string]string, error) {
     if m.Type() != 0 {
-        return nil, Errf("Not an untyped startup message: %q", m.Type())
+        return nil, fmt.Errorf("Not an untyped startup message: %q", m.Type())
     }
 
     buff := m[8:] // skip the length (4-bytes) and version (4-bytes)

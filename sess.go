@@ -3,6 +3,7 @@ package postgressrv
 import (
     "io"
     "net"
+    "fmt"
     "context"
     "math/rand"
     "encoding/binary"
@@ -76,7 +77,7 @@ func (s *session) Serve() error {
     }
 
     if v != "3.0" {
-        return Errf("Unsupported protocol version %s", v)
+        return fmt.Errorf("Unsupported protocol version %s", v)
     }
 
     s.Args, err = msg.StartupArgs()
@@ -130,7 +131,7 @@ func (s *session) Serve() error {
 
         if msg.Type() != 'Q' {
             // TODO implement other message types
-            Logf("MESSAGE TYPE = %q\n", msg.Type())
+            // Logf("MESSAGE TYPE = %q\n", msg.Type())
         }
 
         sql, err := msg.QueryText()
