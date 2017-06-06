@@ -2,21 +2,22 @@ package postgressrv
 
 import (
     "net"
+    "context"
     "database/sql/driver"
 )
 
 // implements the Server interface
 type server struct {
-    queryer driver.Queryer
+    queryer driver.QueryerContext
 }
 
-func New(queryer driver.Queryer) Server {
+func New(queryer driver.QueryerContext) Server {
     return &server{queryer}
 }
 
 // implements Queryer
-func (s *server) Query(sql string, args []driver.Value) (driver.Rows, error) {
-    return s.queryer.Query(sql, args)
+func (s *server) QueryContext(ctx context.Context, sql string, args []driver.NamedValue) (driver.Rows, error) {
+    return s.queryer.QueryContext(ctx, sql, args)
 }
 
 func (s *server) Listen(laddr string) error {

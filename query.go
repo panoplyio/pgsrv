@@ -18,7 +18,7 @@ type column struct {
 
 // Run the query using the Server's defined queryer
 func (q *query) Run() error {
-    rows, err := q.session.Query(q.sql, nil)
+    rows, err := q.session.QueryContext(nil, q.sql, nil)
     if err != nil {
         return err
     }

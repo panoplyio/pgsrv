@@ -6,13 +6,14 @@ import (
 )
 
 type Session interface {
-    driver.Queryer
+    driver.QueryerContext
+    
     Write(m msg) error
     Read() (msg, error)
 }
 
 type Server interface {
-    driver.Queryer
+    driver.QueryerContext
 
     // Manually serve a connection
     Serve(net.Conn) error

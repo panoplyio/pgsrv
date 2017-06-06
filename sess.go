@@ -27,8 +27,8 @@ type session struct {
     initialized bool
 }
 
-func (s *session) Query(sql string, args []driver.Value) (driver.Rows, error) {
-    return s.Server.Query(sql, args)
+func (s *session) QueryContext(ctx context.Context, sql string, args []driver.NamedValue) (driver.Rows, error) {
+    return s.Server.QueryContext(ctx, sql, args)
 }
 
 // Handle a connection session
