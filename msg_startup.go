@@ -77,20 +77,20 @@ func (m msg) IsTerminate() bool {
 // NewTLSResponse creates a new single byte message indicating if the server
 // supports TLS or not. If it does, the client must immediately proceed to
 // initiate the TLS handshake
-func TLSResponseMsg(supported bool) msg {
+func tlsResponseMsg(supported bool) msg {
     b := map[bool]byte{true: 'S', false: 'N'}[supported]
     return msg([]byte{b})
 }
 
 // NewAuthOK creates a new message indicating that the authentication was
 // successful
-func AuthOKMsg() msg {
+func authOKMsg() msg {
     return []byte{'R', 0, 0, 0, 8, 0, 0, 0, 0}
 }
 
 // KeyDataMsg creates a new message providing the client with a process ID and
 // secret key that it can later use to cancel running queries
-func KeyDataMsg(pid int32, secret int32) msg {
+func keyDataMsg(pid int32, secret int32) msg {
     msg := []byte{'K', 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0}
     binary.BigEndian.PutUint32(msg[5:9], uint32(pid))
     binary.BigEndian.PutUint32(msg[9:13], uint32(secret))

@@ -29,7 +29,7 @@ func (q *query) Run() error {
         cols = append(cols, &column{col})
     }
 
-    err = q.session.Write(RowDescriptionMsg(cols))
+    err = q.session.Write(rowDescriptionMsg(cols))
     if err != nil {
         return err
     }
@@ -41,7 +41,7 @@ func (q *query) Run() error {
         if err == io.EOF {
             break
         } else if err != nil {
-            return q.session.Write(ErrMsg(err))
+            return q.session.Write(errMsg(err))
         }
 
         // convert the values to string
@@ -49,12 +49,12 @@ func (q *query) Run() error {
             strings[i] = fmt.Sprintf("%v", v)
         }
 
-        err = q.session.Write(DataRowMsg(strings))
+        err = q.session.Write(dataRowMsg(strings))
         if err != nil {
             return err
         }
     }
 
     // TODO: implement different tags
-    return q.session.Write(CompleteMsg("SELECT 1"))
+    return q.session.Write(completeMsg("SELECT 1"))
 }

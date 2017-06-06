@@ -58,7 +58,7 @@ func (s *session) Serve() error {
 
     if msg.IsTLSRequest() {
         // currently we don't support TLS.
-        err := s.Write(TLSResponseMsg(false))
+        err := s.Write(tlsResponseMsg(false))
         if err != nil {
             return err
         }
@@ -85,7 +85,7 @@ func (s *session) Serve() error {
     }
 
     // handle authentication.
-    err = s.Write(AuthOKMsg())
+    err = s.Write(authOKMsg())
     if err != nil {
         return err
     }
@@ -104,7 +104,7 @@ func (s *session) Serve() error {
     // notify the client of the pid and secret to be passed back when it wishes
     // to interrupt this session
     s.Ctx, s.CancelFunc = context.WithCancel(context.Background())
-    err = s.Write(KeyDataMsg(pid, s.Secret))
+    err = s.Write(keyDataMsg(pid, s.Secret))
     if err != nil {
         return err
     }
@@ -113,7 +113,7 @@ func (s *session) Serve() error {
     s.initialized = true
     for {
         // notify the client that we're ready for more messages.
-        err = s.Write(ReadyMsg())
+        err = s.Write(readyMsg())
         if err != nil {
             return err
         }
