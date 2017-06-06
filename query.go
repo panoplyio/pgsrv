@@ -41,7 +41,7 @@ func (q *query) Run() error {
         if err == io.EOF {
             break
         } else if err != nil {
-            return err
+            return q.session.Write(ErrMsg(err))
         }
 
         // convert the values to string
@@ -55,10 +55,6 @@ func (q *query) Run() error {
         }
     }
 
-    if err != nil {
-        return q.session.Write(ErrMsg(err))
-    } else {
-        // TODO: implement different tags
-        return q.session.Write(CompleteMsg("SELECT 1"))
-    }
+    // TODO: implement different tags
+    return q.session.Write(CompleteMsg("SELECT 1"))
 }

@@ -20,10 +20,15 @@ type Session interface {
 type Server interface {
     Queryer
 
-    // Manually start serving a connection. This function is called internally
-    // by Start(), but can also be called directly
+    // Manually serve a connection
     Serve(net.Conn) error
 }
+
+// Msg is just an alias for a slice of bytes that exposes common operations on
+// Postgres' client-server protocol messages.
+// see: https://www.postgresql.org/docs/9.2/static/protocol-message-formats.html
+// for postgres specific list of message formats
+type Msg []byte
 
 // Error object that includes a hint text
 type ErrHinter interface {
