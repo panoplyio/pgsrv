@@ -10,7 +10,7 @@ import (
 // encoded by two consequtive 2-byte integers, one for the major version, and
 // the other for the minor version. Currently version 3.0 is the only valid
 // version.
-func (m Msg) StartupVersion() (string, error) {
+func (m msg) StartupVersion() (string, error) {
     if m.Type() != 0 {
         return "", Errf("Not an untyped startup message: %q", m.Type())
     }
@@ -25,7 +25,7 @@ func (m Msg) StartupVersion() (string, error) {
 // requested database name, user name, charset and additional connection
 // defaults that may be used by the server. These arguments are encoded as pairs
 // of key-values, terminated by a NULL character.
-func (m Msg) StartupArgs() (map[string]string, error) {
+func (m msg) StartupArgs() (map[string]string, error) {
     if m.Type() != 0 {
         return nil, Errf("Not an untyped startup message: %q", m.Type())
     }
@@ -63,46 +63,46 @@ func (m Msg) StartupArgs() (map[string]string, error) {
 // IsTLSRequest determines if this startup message is actually a request to open
 // a TLS connection, in which case the version number is a special, predefined
 // value of "1234.5679"
-func (m Msg) IsTLSRequest() bool {
+func (m msg) IsTLSRequest() bool {
     v, _ := m.StartupVersion()
     return v == "1234.5679"
 }
 
 // IsTerminate determines if the current message is a notification that the
 // client has terminated the connection upon user-request.
-func (m Msg) IsTerminate() bool {
+func (m msg) IsTerminate() bool {
     return m.Type() == 'X'
 }
 
 // NewTLSResponse creates a new single byte message indicating if the server
 // supports TLS or not. If it does, the client must immediately proceed to
 // initiate the TLS handshake
-func TLSResponseMsg(supported bool) Msg {
+func TLSResponseMsg(supported bool) msg {
     b := map[bool]byte{true: 'S', false: 'N'}[supported]
-    return Msg([]byte{b})
+    return msg([]byte{b})
 }
 
 // NewAuthOK creates a new message indicating that the authentication was
 // successful
-func AuthOKMsg() Msg {
+func AuthOKMsg() msg {
     return []byte{'R', 0, 0, 0, 8, 0, 0, 0, 0}
 }
 
 // KeyDataMsg creates a new message providing the client with a process ID and
 // secret key that it can later use to cancel running queries
-func KeyDataMsg(pid int32, secret int32) Msg {
+func KeyDataMsg(pid int32, secret int32) msg {
     msg := []byte{'K', 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0}
     binary.BigEndian.PutUint32(msg[5:9], uint32(pid))
     binary.BigEndian.PutUint32(msg[9:13], uint32(secret))
     return msg
 }
 
-func (m Msg) IsCancel() bool {
+func (m msg) IsCancel() bool {
     v, _ := m.StartupVersion()
     return v == "1234.5678"
 }
 
-func (m Msg) CancelKeyData() (int32, int32, error) {
+func (m msg) CancelKeyData() (int32, int32, error) {
     if !m.IsCancel() {
         return -1, -1, fmt.Errorf("Not a cancel message")
     }

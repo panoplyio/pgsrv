@@ -5,7 +5,7 @@ import (
 )
 
 // QueryText returns the SQL query string from a Query or Parse message
-func (m Msg) QueryText() (string, error) {
+func (m msg) QueryText() (string, error) {
     if m.Type() != 'Q' {
         return "", Errf("Not a query message: %q", m.Type())
     }
@@ -15,7 +15,7 @@ func (m Msg) QueryText() (string, error) {
 
 // RowDescriptionMsg is a message indicating that DataRow messages are about to
 // be transmitted and delivers their schema (column names/types)
-func RowDescriptionMsg(cols []*column) Msg {
+func RowDescriptionMsg(cols []*column) msg {
     msg := []byte{'T', /* LEN = */ 0, 0, 0, 0, /* NUM FIELDS = */ 0, 0}
     binary.BigEndian.PutUint16(msg[5:], uint16(len(cols)))
 
@@ -41,7 +41,7 @@ func RowDescriptionMsg(cols []*column) Msg {
     return msg
 }
 
-func DataRowMsg(vals []string) Msg {
+func DataRowMsg(vals []string) msg {
     msg := []byte{'D', /* LEN = */ 0, 0, 0, 0, /* NUM VALS = */ 0, 0}
     binary.BigEndian.PutUint16(msg[5:], uint16(len(vals)))
 
@@ -56,7 +56,7 @@ func DataRowMsg(vals []string) Msg {
     return msg
 }
 
-func CompleteMsg(tag string) Msg {
+func CompleteMsg(tag string) msg {
     msg := []byte{'C', 0, 0, 0, 0}
     msg = append(msg, []byte(tag)...)
     msg = append(msg, 0) // NULL TERMINATED
@@ -66,7 +66,7 @@ func CompleteMsg(tag string) Msg {
     return msg
 }
 
-func ErrMsg(err error) Msg {
+func ErrMsg(err error) msg {
     msg := []byte{'E', 0, 0, 0, 0}
 
     // https://www.postgresql.org/docs/9.3/static/protocol-error-fields.html
@@ -102,6 +102,6 @@ func ErrMsg(err error) Msg {
 }
 
 // ReadyMsg is sent whenever the backend is ready for a new query cycle.
-func ReadyMsg() Msg {
+func ReadyMsg() msg {
     return []byte{'Z', 0, 0, 0, 5, 'I'}
 }

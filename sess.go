@@ -160,7 +160,7 @@ func (s *session) Serve() error {
 //
 // This method abstracts away this differentiation, returning the next available
 // message whether it's typed or not.
-func (s *session) Read() (Msg, error) {
+func (s *session) Read() (msg, error) {
     typechar := make([]byte, 1)
     if s.initialized {
 
@@ -193,7 +193,7 @@ func (s *session) Read() (Msg, error) {
         copy(msg[1:], body)
     }
 
-    return NewMsg(msg), nil
+    return newMsg(msg), nil
 }
 
 // ReadMsgBody reads the body of the next message in the connection. The body is
@@ -226,7 +226,7 @@ func (s *session) readBody() ([]byte, error) {
 }
 
 // WriteMsg writes the provided msg to the client connection
-func (s *session) Write(m Msg) error {
+func (s *session) Write(m msg) error {
     _, err := s.Conn.Write(m)
     return err
 }
