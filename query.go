@@ -3,6 +3,7 @@ package postgressrv
 import (
     "io"
     "fmt"
+    "context"
     "database/sql/driver"
 )
 
@@ -18,9 +19,10 @@ type column struct {
 
 // Run the query using the Server's defined queryer
 func (q *query) Run() error {
-    rows, err := q.session.QueryContext(nil, q.sql, nil)
+    ctx := context.Background()
+    rows, err := q.session.QueryContext(ctx, q.sql, nil)
     if err != nil {
-        return err
+        return q.session.Write(errMsg(err))
     }
 
     // build columns from the provided columns list
