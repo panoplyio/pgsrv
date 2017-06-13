@@ -8,7 +8,7 @@ import (
 type Rows driver.Rows
 
 type Queryer interface {
-    Query(context.Context, sql string) (Rows, error)
+    Query(ctx context.Context, sql string) (Rows, error)
 }
 
 type Session interface {
