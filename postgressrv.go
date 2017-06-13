@@ -5,15 +5,21 @@ import (
     "database/sql/driver"
 )
 
+type Rows driver.Rows
+
+type Queryer interface {
+    Query(context.Context, sql string) (Rows, error)
+}
+
 type Session interface {
-    driver.QueryerContext
-    
+    Queryer
+
     Write(m msg) error
     Read() (msg, error)
 }
 
 type Server interface {
-    driver.QueryerContext
+    Queryer
 
     // Manually serve a connection
     Serve(net.Conn) error

@@ -7,7 +7,6 @@ import (
     "context"
     "math/rand"
     "encoding/binary"
-    "database/sql/driver"
 )
 
 var AllSessions = map[int32]*session{}
@@ -27,8 +26,8 @@ type session struct {
     initialized bool
 }
 
-func (s *session) QueryContext(ctx context.Context, sql string, args []driver.NamedValue) (driver.Rows, error) {
-    return s.Server.QueryContext(ctx, sql, args)
+func (s *session) Query(ctx context.Context, sql string) (Rows, error) {
+    return s.Server.Query(ctx, sql)
 }
 
 // Handle a connection session
