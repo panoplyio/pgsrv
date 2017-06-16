@@ -2,6 +2,7 @@ package pgsrv
 
 import (
     "net"
+    "context"
     "database/sql/driver"
 )
 
