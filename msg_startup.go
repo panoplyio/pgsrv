@@ -1,4 +1,4 @@
-package postgressrv
+package pgsrv
 
 import (
     "fmt"

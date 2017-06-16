@@ -1,4 +1,4 @@
-package postgressrv
+package pgsrv
 
 // Msg is just an alias for a slice of bytes that exposes common operations on
 // Postgres' client-server protocol messages.
