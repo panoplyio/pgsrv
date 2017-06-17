@@ -23,7 +23,7 @@ type ErrCoder interface {
     Code() string
 }
 
-type Locer interface {
+type ErrLocer interface {
     Loc() int
 }
 
