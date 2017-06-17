@@ -4,11 +4,15 @@ import (
     "fmt"
 )
 
-type Err error
+type Err interface {
+    error
+    WithHint(hint string) ErrHinter
+    WithCode(code string) ErrCoder
+    WithLoc(loc int) ErrLocer
+}
 
 // Error object that includes a hint text
 type ErrHinter interface {
-    error
     Hint() string
 }
 
@@ -16,8 +20,11 @@ type ErrHinter interface {
 // See list of available error codes here:
 //      https://www.postgresql.org/docs/10/static/errcodes-appendix.html
 type ErrCoder interface {
-    error
     Code() string
+}
+
+type Locer interface {
+    Loc() int
 }
 
 // Undefined indicates that a certain entity (function, column, etc.) is not
