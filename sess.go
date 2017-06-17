@@ -17,7 +17,7 @@ var AllSessions = map[int32]*session{}
 // see: https://www.postgresql.org/docs/9.2/static/protocol.html
 // for postgres protocol and startup handshake process
 type session struct {
-    Server Server
+    Server *server
     Conn net.Conn
     Args map[string]string
     Secret int32 // used for cancelling requests

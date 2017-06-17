@@ -13,15 +13,15 @@ type Queryer interface {
 }
 
 type Session interface {
-    Queryer
 
-    Write(m msg) error
-    Read() (msg, error)
+    // Set a session variable
+    Set(k string, v interface{})
+
+    // Get a session variable
+    Get(k string) interface{}
 }
 
 type Server interface {
-    Queryer
-
     // Manually serve a connection
     Serve(net.Conn) error
 }

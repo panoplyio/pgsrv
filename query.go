@@ -8,7 +8,7 @@ import (
 )
 
 type query struct {
-    session Session
+    session *session
     sql string
     numCols int
 }
