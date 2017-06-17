@@ -25,7 +25,7 @@ func (m msg) StartupVersion() (string, error) {
 // requested database name, user name, charset and additional connection
 // defaults that may be used by the server. These arguments are encoded as pairs
 // of key-values, terminated by a NULL character.
-func (m msg) StartupArgs() (map[string]string, error) {
+func (m msg) StartupArgs() (map[string]interface{}, error) {
     if m.Type() != 0 {
         return nil, fmt.Errorf("Not an untyped startup message: %q", m.Type())
     }
@@ -52,7 +52,7 @@ func (m msg) StartupArgs() (map[string]string, error) {
 
     // convert the list of strings to a map for key-value
     // all even indexes are keys, odd are values
-    args := make(map[string]string)
+    args := make(map[string]interface{})
     for i := 0 ; i < len(strings) - 1 ; i += 2 {
         args[strings[i]] = strings[i + 1]
     }

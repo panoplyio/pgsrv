@@ -20,7 +20,7 @@ var AllSessions = map[int32]*session{}
 type session struct {
     Server *server
     Conn net.Conn
-    Args map[string]string
+    Args map[string]interface{}
     Secret int32 // used for cancelling requests
     Ctx context.Context
     CancelFunc context.CancelFunc
@@ -231,3 +231,8 @@ func (s *session) Write(m msg) error {
     _, err := s.Conn.Write(m)
     return err
 }
+
+func (s *session) Set(k string, v interface{}) { s.Args[k] = v }
+func (s *session) Get(k string) interface{} { return s.Args[k] }
+func (s *session) Del(k string) { delete(s.Args, k) }
+func (s *session) All() map[string]interface{} { return s.Args }
