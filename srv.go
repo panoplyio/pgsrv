@@ -3,6 +3,7 @@ package pgsrv
 import (
     "net"
     "context"
+    "database/sql/driver"
 )
 
 // implements the Server interface
@@ -15,7 +16,7 @@ func New(queryer Queryer) Server {
 }
 
 // implements Queryer
-func (s *server) Query(ctx context.Context, sql string) (Rows, error) {
+func (s *server) Query(ctx context.Context, sql string) (driver.Rows, error) {
     return s.queryer.Query(ctx, sql)
 }
 

@@ -6,10 +6,8 @@ import (
     "database/sql/driver"
 )
 
-type Rows driver.Rows
-
 type Queryer interface {
-    Query(ctx context.Context, sql string) (Rows, error)
+    Query(ctx context.Context, sql string) (driver.Rows, error)
 }
 
 type Session interface {
