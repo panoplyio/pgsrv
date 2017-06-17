@@ -4,9 +4,7 @@ import (
     "fmt"
 )
 
-type Err interface {
-    error
-}
+type Err error
 
 // Error object that includes a hint text
 type ErrHinter interface {
