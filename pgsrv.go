@@ -2,6 +2,7 @@ package pgsrv
 
 import (
     "net"
+    "fmt"
     "context"
     "database/sql/driver"
 )
@@ -38,4 +39,26 @@ type ErrHinter interface {
 type ErrCoder interface {
     error
     Code() string
+}
+
+// Undefined indicates that a certain entity (function, column, etc.) is not
+// registered or available for use.
+func Undefined(msg string, args ...interface{}) error {
+    return fmt.Errorf("Undefined " + msg, args...)
+}
+
+// Invalid indicates that the user request is invalid or otherwise incorrect.
+// It's very much similar to a syntax error, except that the invalidity is
+// logical within the request rather than syntactic. For example, using a non-
+// boolean expression in WHERE
+func Invalid(msg string, args ...interface{}) error {
+    return fmt.Errorf("Invalid " + msg, args...)
+}
+
+// Unsupported indicates that a certain feature is not supported. Unlike
+// Undefined - this error is not for cases where a user-space entity is not
+// recognized but when the recognized entity cannot perform some of its
+// functionality
+func Unsupported(msg string, args ...interface{}) error {
+    return fmt.Errorf("Unsupported " + msg, args...)
 }
