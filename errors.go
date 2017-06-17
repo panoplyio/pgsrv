@@ -9,9 +9,7 @@ import (
 // but it provides the API to generate user-friendly error messages. Note that
 // all of the construction functions (prefixed with With*) are updating the same
 // error, and does not create a new one. The same error is returned for
-// chaining. See:
-//
-//      https://www.postgresql.org/docs/9.3/static/protocol-error-fields.html
+// chaining. See: https://www.postgresql.org/docs/9.3/static/protocol-error-fields.html
 //
 // Postgres has hundreds of different error codes, broken into categories. Use
 // the constructors below (Invalid, Unsupported, etc.) to create errors with
@@ -24,9 +22,7 @@ import (
 //          Code() string
 //      }
 //
-// For the full list of error codes, see:
-//
-//      See: https://www.postgresql.org/docs/10/static/errcodes-appendix.html
+// For the full list of error codes, see: https://www.postgresql.org/docs/10/static/errcodes-appendix.html
 type Err error
 
 type err struct {
