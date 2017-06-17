@@ -20,6 +20,7 @@ type column struct {
 // Run the query using the Server's defined queryer
 func (q *query) Run() error {
     ctx := context.Background()
+    ctx = context.WithValue(ctx, "Session", q.session)
     rows, err := q.session.Query(ctx, q.sql)
     if err != nil {
         return q.session.Write(errMsg(err))
