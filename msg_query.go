@@ -79,19 +79,19 @@ func errMsg(err error) msg {
 
     // error code
     errCode, ok := err.(interface { Code() string })
-    if ok {
+    if ok && errCode.Code() != "" {
         fields["C"] = errCode.Code()
     }
 
     // hint
     errHint, ok := err.(interface { Hint() string })
-    if ok {
+    if ok && errHint.Hint() != "" {
         fields["H"] = errHint.Hint()
     }
 
     // cursor position
     errLoc, ok := err.(interface { Loc() int })
-    if ok {
+    if ok && errLoc.Loc() >= 0 {
         fields["L"] = fmt.Sprintf("%d", errLoc.Loc())
     }
 
