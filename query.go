@@ -36,6 +36,7 @@ func (q *query) Run() error {
         return err
     }
 
+    count := 0
     row := make([]driver.Value, len(cols))
     strings := make([]string, len(cols))
     for {
@@ -55,8 +56,11 @@ func (q *query) Run() error {
         if err != nil {
             return err
         }
+
+        count += 1
     }
 
     // TODO: implement different tags
-    return q.session.Write(completeMsg("SELECT 1"))
+    tag := fmt.Sprintf("SELECT %d", count)
+    return q.session.Write(completeMsg(tag))
 }
