@@ -55,7 +55,7 @@ func (e *err) WithHint(hint string, args ...interface{}) Err {
 // registered or available for use.
 func Undefined(msg string, args ...interface{}) Err {
     msg = fmt.Sprintf("Undefined " + msg, args...)
-    return &err{M: msg}
+    return (&err{M: msg}).WithCode("42703")
 }
 
 // Invalid indicates that the user request is invalid or otherwise incorrect.
@@ -64,7 +64,7 @@ func Undefined(msg string, args ...interface{}) Err {
 // boolean expression in WHERE
 func Invalid(msg string, args ...interface{}) Err {
     msg = fmt.Sprintf("Invalid " + msg, args...)
-    return &err{M: msg}
+    return (&err{M: msg}).WithCode("22000")
 }
 
 // Unsupported indicates that a certain feature is not supported. Unlike
@@ -73,5 +73,5 @@ func Invalid(msg string, args ...interface{}) Err {
 // functionality
 func Unsupported(msg string, args ...interface{}) Err {
     msg = fmt.Sprintf("Unsupported " + msg, args...)
-    return &err{M: msg}
+    return (&err{M: msg}).WithCode("0A000")
 }
