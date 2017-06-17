@@ -78,15 +78,21 @@ func errMsg(err error) msg {
     }
 
     // error code
-    errCode, ok := err.(ErrCoder)
+    errCode, ok := err.(interface { Code() string })
     if ok {
         fields["C"] = errCode.Code()
     }
 
     // hint
-    errHint, ok := err.(ErrHinter)
+    errHint, ok := err.(interface { Hint() string })
     if ok {
         fields["H"] = errHint.Hint()
+    }
+
+    // cursor position
+    errLoc, ok := err.(interface { Loc() int })
+    if ok {
+        fields["L"] = fmt.Sprintf("%d", errLoc.Loc())
     }
 
     for k, v := range fields {

@@ -4,19 +4,45 @@ import (
     "fmt"
 )
 
+type Err interface {
+    error
+
+    WithHint(hint string, args ...interface{}) Err
+    WithCode(code string) Err
+    WithLoc(loc int) Err
+}
+
+type err struct {
+    M string // Message
+    H string // Hint
+    C string // Code
+    L int    // Location
+}
+
+func (e *err) Error() string { return e.M }
+func (e *err) Hint() string { return e.H }
+func (e *err) Code() string { return e.C }
+func (e *err) Loc() int { return e.L }
+func (e *err) WithCode(code string) Err { e.C = code; return e }
+func (e *err) WithLoc(loc int) Err { e.L = loc; return e }
+func (e *err) WithHint(hint string, args ...interface{}) Err {
+    e.H = fmt.Sprintf(hint, args...)
+    return e
+}
+
 // Error object that includes a hint text
-type ErrHinter interface {
+type errHinter interface {
     Hint() string
 }
 
 // Error object that includes an error code
 // See list of available error codes here:
 //      https://www.postgresql.org/docs/10/static/errcodes-appendix.html
-type ErrCoder interface {
+type errCoder interface {
     Code() string
 }
 
-type ErrLocer interface {
+type errLocer interface {
     Loc() int
 }
 
