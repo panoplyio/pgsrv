@@ -41,8 +41,19 @@ func (e *err) Loc() int { return e.L }
 // location) for the error in the original query text. This is useful to provide
 // the client with a specific marker of where the error occured in his SQL
 func WithLoc(err error, loc int) Err {
+    if err == nil {
+        return nil
+    }
+
     e := fromErr(err)
-    e.L = loc
+
+    // keep the bottom-most location
+    // This is because we don't want top-level errors to override the actual
+    // location where the error originated
+    if e.L < 0 {
+        e.L = loc
+    }
+
     return e
 }
 
@@ -51,6 +62,10 @@ func WithLoc(err error, loc int) Err {
 // advice (potentially inappropriate) rather than hard facts. Might run to
 // multiple lines
 func WithHint(err error, hint string, args ...interface{}) Err {
+    if err == nil {
+        return nil
+    }
+
     e := fromErr(err)
     e.H = fmt.Sprintf(hint, args...)
     return e
@@ -83,6 +98,11 @@ func Unsupported(msg string, args ...interface{}) Err {
 
 
 func fromErr(e error) *err {
+    err1, ok := e.(*err)
+    if ok {
+        return err1
+    }
+
     m := e.Error()
     locer, ok := e.(interface { Loc() int })
     l := -1
