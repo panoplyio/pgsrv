@@ -6,6 +6,9 @@ import (
     "database/sql/driver"
 )
 
+// Queryer is a generic interface for objects capable of parsing and executing
+// sql code. The returned Rows object provides the API for reading the row data
+// as well as metadata (like Columns, types, etc.)
 type Queryer interface {
     Query(ctx context.Context, sql string) (driver.Rows, error)
 }
@@ -23,7 +26,10 @@ type Session interface {
     All() map[string]interface{}
 }
 
+// Server is an interface for objects capable for handling the postgres protocol
+// by serving client connections. Each connection is assigned a Session that's
+// maintained in-memory until the connection is closed.
 type Server interface {
     // Manually serve a connection
-    Serve(net.Conn) error
+    Serve(net.Conn) error // blocks. Run in go-routine.
 }
