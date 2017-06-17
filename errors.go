@@ -4,13 +4,32 @@ import (
     "fmt"
 )
 
+// Err is a postgres-compatible error object. It's not required to be used, as
+// any other normal error object would be converted to a generic internal error,
+// but it provides the API to generate user-friendly error messages. Note that
+// all of the construction functions (prefixed with With*) are updating the same
+// error, and does not create a new one. The same error is returned for
+// chaining. See:
+//
+//      https://www.postgresql.org/docs/9.3/static/protocol-error-fields.html
+//
 type Err interface {
     error
 
+    // WithHints sets an optional suggestion what to do about the problem. This
+    // is intended to differ from Detail in that it offers advice (potentially
+    // inappropriate) rather than hard facts. Might run to multiple lines
     WithHint(hint string, args ...interface{}) Err
 
-    // https://www.postgresql.org/docs/10/static/errcodes-appendix.html
+    // WithCode sets a the SQLSTATE code for the error. Not localizable.
+    // You can also use the genric Error constructors (Undefined, Invalid, etc.)
+    // to generate errors with preset error codes
+    // See: https://www.postgresql.org/docs/10/static/errcodes-appendix.html
     WithCode(code string) Err
+
+    // WithLoc sets the cursor position (location) for the error in the original
+    // query text. This is useful to provide the client with a specific marker
+    // of where the error occured in his SQL
     WithLoc(loc int) Err
 }
 
