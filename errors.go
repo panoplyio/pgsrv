@@ -13,25 +13,21 @@ import (
 //
 //      https://www.postgresql.org/docs/9.3/static/protocol-error-fields.html
 //
-type Err interface {
-    error
-
-    // WithHints sets an optional suggestion what to do about the problem. This
-    // is intended to differ from Detail in that it offers advice (potentially
-    // inappropriate) rather than hard facts. Might run to multiple lines
-    WithHint(hint string, args ...interface{}) Err
-
-    // WithCode sets a the SQLSTATE code for the error. Not localizable.
-    // You can also use the genric Error constructors (Undefined, Invalid, etc.)
-    // to generate errors with preset error codes
-    // See: https://www.postgresql.org/docs/10/static/errcodes-appendix.html
-    WithCode(code string) Err
-
-    // WithLoc sets the cursor position (location) for the error in the original
-    // query text. This is useful to provide the client with a specific marker
-    // of where the error occured in his SQL
-    WithLoc(loc int) Err
-}
+// Postgres has hundreds of different error codes, broken into categories. Use
+// the constructors below (Invalid, Unsupported, etc.) to create errors with
+// preset error codes. If you can't find the one you need, consider adding it
+// here as a generic constructor. Otherwise, you can implement an object that
+// adheres to this interface:
+//
+//      interface {
+//          error
+//          Code() string
+//      }
+//
+// For the full list of error codes, see:
+//
+//      See: https://www.postgresql.org/docs/10/static/errcodes-appendix.html
+type Err error
 
 type err struct {
     M string // Message
@@ -44,18 +40,27 @@ func (e *err) Error() string { return e.M }
 func (e *err) Hint() string { return e.H }
 func (e *err) Code() string { return e.C }
 func (e *err) Loc() int { return e.L }
-func (e *err) WithCode(code string) Err { e.C = code; return e }
-func (e *err) WithLoc(loc int) Err { e.L = loc; return e }
-func (e *err) WithHint(hint string, args ...interface{}) Err {
-    e.H = fmt.Sprintf(hint, args...)
-    return e
+
+// WithLoc decorates an error object to also include the cursor position
+// location) for the error in the original query text. This is useful to provide
+// the client with a specific marker of where the error occured in his SQL
+func WithLoc(err error, loc int) Err {
+    return nil
+}
+
+// WithHint decorates an error object to also include a suggestion what to do
+// about the problem. This is intended to differ from Detail in that it offers
+// advice (potentially inappropriate) rather than hard facts. Might run to
+// multiple lines
+func WithHint(err error, hint string, args ...interface{}) Err {
+    return nil
 }
 
 // Undefined indicates that a certain entity (function, column, etc.) is not
 // registered or available for use.
 func Undefined(msg string, args ...interface{}) Err {
     msg = fmt.Sprintf("Undefined " + msg, args...)
-    return (&err{M: msg}).WithCode("42703")
+    return &err{M: msg, C: "42703"}
 }
 
 // Invalid indicates that the user request is invalid or otherwise incorrect.
@@ -64,7 +69,7 @@ func Undefined(msg string, args ...interface{}) Err {
 // boolean expression in WHERE
 func Invalid(msg string, args ...interface{}) Err {
     msg = fmt.Sprintf("Invalid " + msg, args...)
-    return (&err{M: msg}).WithCode("22000")
+    return &err{M: msg, C: "22000"}
 }
 
 // Unsupported indicates that a certain feature is not supported. Unlike
@@ -73,5 +78,5 @@ func Invalid(msg string, args ...interface{}) Err {
 // functionality
 func Unsupported(msg string, args ...interface{}) Err {
     msg = fmt.Sprintf("Unsupported " + msg, args...)
-    return (&err{M: msg}).WithCode("0A000")
+    return &err{M: msg, C: "0A000"}
 }
