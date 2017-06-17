@@ -41,7 +41,9 @@ func (e *err) Loc() int { return e.L }
 // location) for the error in the original query text. This is useful to provide
 // the client with a specific marker of where the error occured in his SQL
 func WithLoc(err error, loc int) Err {
-    return nil
+    e := fromErr(err)
+    e.L = loc
+    return e
 }
 
 // WithHint decorates an error object to also include a suggestion what to do
@@ -49,14 +51,16 @@ func WithLoc(err error, loc int) Err {
 // advice (potentially inappropriate) rather than hard facts. Might run to
 // multiple lines
 func WithHint(err error, hint string, args ...interface{}) Err {
-    return nil
+    e := fromErr(err)
+    e.H = fmt.Sprintf(hint, args...)
+    return e
 }
 
 // Undefined indicates that a certain entity (function, column, etc.) is not
 // registered or available for use.
 func Undefined(msg string, args ...interface{}) Err {
     msg = fmt.Sprintf("Undefined " + msg, args...)
-    return &err{M: msg, C: "42703"}
+    return &err{M: msg, C: "42703", L: -1}
 }
 
 // Invalid indicates that the user request is invalid or otherwise incorrect.
@@ -65,7 +69,7 @@ func Undefined(msg string, args ...interface{}) Err {
 // boolean expression in WHERE
 func Invalid(msg string, args ...interface{}) Err {
     msg = fmt.Sprintf("Invalid " + msg, args...)
-    return &err{M: msg, C: "22000"}
+    return &err{M: msg, C: "22000", L: -1}
 }
 
 // Unsupported indicates that a certain feature is not supported. Unlike
@@ -74,5 +78,29 @@ func Invalid(msg string, args ...interface{}) Err {
 // functionality
 func Unsupported(msg string, args ...interface{}) Err {
     msg = fmt.Sprintf("Unsupported " + msg, args...)
-    return &err{M: msg, C: "0A000"}
+    return &err{M: msg, C: "0A000", L: -1}
+}
+
+
+func fromErr(e error) *err {
+    m := e.Error()
+    locer, ok := e.(interface { Loc() int })
+    l := -1
+    if ok {
+        l = locer.Loc()
+    }
+
+    coder, ok := e.(interface { Code() string })
+    c := ""
+    if ok {
+        c = coder.Code()
+    }
+
+    hinter, ok := e.(interface { Hint() string })
+    h := ""
+    if ok {
+        h = hinter.Hint()
+    }
+
+    return &err{M: m, C: c, L: l, H: h}
 }
