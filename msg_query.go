@@ -92,7 +92,7 @@ func errMsg(err error) msg {
     // cursor position
     errLoc, ok := err.(interface { Loc() int })
     if ok && errLoc.Loc() >= 0 {
-        fields["L"] = fmt.Sprintf("%d", errLoc.Loc())
+        fields["P"] = fmt.Sprintf("%d", errLoc.Loc())
     }
 
     for k, v := range fields {
