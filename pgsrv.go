@@ -7,11 +7,28 @@ import (
     nodes "github.com/lfittl/pg_query_go/nodes"
 )
 
-// Queryer is a generic interface for objects capable of parsing and executing
-// sql code. The returned Rows object provides the API for reading the row data
-// as well as metadata (like Columns, types, etc.)
+// Queryer is a generic interface for objects capable of performing sql queries.
+// The returned Rows object provides the API for reading the row data as well as
+// metadata (like Columns, types, etc.)
 type Queryer interface {
     Query(ctx context.Context, n nodes.Node) (driver.Rows, error)
+}
+
+// Execer is a generic interface for objects capable of executing sql write
+// commands, like INSERT or CREATE TABLE. The returned Result object provides
+// the API for reading the number of affected rows.
+type Execer interface {
+    Exec(ctx context.Context, n nodes.Node) (driver.Result, error)
+}
+
+// ResultTag can be implemented by driver.Result to provide the tag name to be
+// used to notify the postgres client of the completed command. If left
+// unimplemented, the default behavior follows the spec described in the link
+// below. For all un-documented cases, "UPDATE N" will be used, where N is the
+// number of affected rows.
+// See CommandComplete: https://www.postgresql.org/docs/10/static/protocol-message-formats.html
+type ResultTag interface {
+    Tag() (string, error)
 }
 
 // Session represents a connected client session. It provides the API to set,

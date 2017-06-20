@@ -13,7 +13,9 @@ type server struct {
 }
 
 // New creates a Server object capable of handling postgres client connections.
-// It delegates query execution to the provided Queryer
+// It delegates query execution to the provided Queryer. If the provided Queryer
+// also implements Execer, the returned server will also be able to handle
+// executing SQL commands (see Execer).
 func New(queryer Queryer) Server {
     return &server{queryer}
 }
@@ -21,6 +23,16 @@ func New(queryer Queryer) Server {
 // implements Queryer
 func (s *server) Query(ctx context.Context, n nodes.Node) (driver.Rows, error) {
     return s.queryer.Query(ctx, n)
+}
+
+// implements Execer
+func (s *server) Exec(ctx context.Context, n nodes.Node) (driver.Result, error) {
+    execer, ok := s.queryer.(Execer)
+    if !ok {
+        return nil, Unsupported("commands execution. Read-only mode.")
+    }
+
+    return execer.Exec(ctx, n)
 }
 
 func (s *server) Listen(laddr string) error {

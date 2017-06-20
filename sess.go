@@ -28,8 +28,14 @@ type session struct {
     initialized bool
 }
 
+// implements Queryer
 func (s *session) Query(ctx context.Context, n nodes.Node) (driver.Rows, error) {
     return s.Server.Query(ctx, n)
+}
+
+// implements Execer
+func (s *session) Exec(ctx context.Context, n nodes.Node) (driver.Result, error) {
+    return s.Server.Exec(ctx, n)
 }
 
 // Handle a connection session
