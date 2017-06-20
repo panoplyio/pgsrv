@@ -4,6 +4,7 @@ import (
     "net"
     "context"
     "database/sql/driver"
+    nodes "github.com/lfittl/pg_query_go/nodes"
 )
 
 // implements the Server interface
@@ -18,8 +19,8 @@ func New(queryer Queryer) Server {
 }
 
 // implements Queryer
-func (s *server) Query(ctx context.Context, sql string) (driver.Rows, error) {
-    return s.queryer.Query(ctx, sql)
+func (s *server) Query(ctx context.Context, n nodes.Node) (driver.Rows, error) {
+    return s.queryer.Query(ctx, n)
 }
 
 func (s *server) Listen(laddr string) error {

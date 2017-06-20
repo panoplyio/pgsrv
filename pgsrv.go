@@ -4,13 +4,14 @@ import (
     "net"
     "context"
     "database/sql/driver"
+    nodes "github.com/lfittl/pg_query_go/nodes"
 )
 
 // Queryer is a generic interface for objects capable of parsing and executing
 // sql code. The returned Rows object provides the API for reading the row data
 // as well as metadata (like Columns, types, etc.)
 type Queryer interface {
-    Query(ctx context.Context, sql string) (driver.Rows, error)
+    Query(ctx context.Context, n nodes.Node) (driver.Rows, error)
 }
 
 // Session represents a connected client session. It provides the API to set,

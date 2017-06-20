@@ -8,6 +8,7 @@ import (
     "math/rand"
     "encoding/binary"
     "database/sql/driver"
+    nodes "github.com/lfittl/pg_query_go/nodes"
 )
 
 var AllSessions = map[int32]*session{}
@@ -27,8 +28,8 @@ type session struct {
     initialized bool
 }
 
-func (s *session) Query(ctx context.Context, sql string) (driver.Rows, error) {
-    return s.Server.Query(ctx, sql)
+func (s *session) Query(ctx context.Context, n nodes.Node) (driver.Rows, error) {
+    return s.Server.Query(ctx, n)
 }
 
 // Handle a connection session

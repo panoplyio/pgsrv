@@ -5,6 +5,8 @@ import (
     "fmt"
     "context"
     "database/sql/driver"
+    parser "github.com/lfittl/pg_query_go"
+    nodes "github.com/lfittl/pg_query_go/nodes"
 )
 
 type query struct {
@@ -17,11 +19,8 @@ type column struct {
     name string
 }
 
-// Run the query using the Server's defined queryer
-func (q *query) Run() error {
-    ctx := context.Background()
-    ctx = context.WithValue(ctx, "Session", q.session)
-    rows, err := q.session.Query(ctx, q.sql)
+func (q *query) Query(ctx context.Context, n nodes.Node) error {
+    rows, err := q.session.Query(ctx, n)
     if err != nil {
         return q.session.Write(errMsg(err))
     }
@@ -64,4 +63,31 @@ func (q *query) Run() error {
     // TODO: implement different tags
     tag := fmt.Sprintf("SELECT %d", count)
     return q.session.Write(completeMsg(tag))
+
+}
+
+// Run the query using the Server's defined queryer
+func (q *query) Run() error {
+
+    // parse the query
+    ast, err := parser.Parse(q.sql)
+    if err != nil {
+        return q.session.Write(errMsg(err))
+    }
+
+    // add the session to the context, cast to the Session interface just for
+    // compile time verification that the interface is implemented.
+    ctx := context.Background()
+    ctx = context.WithValue(ctx, "Session", Session(q.session))
+    ctx = context.WithValue(ctx, "SQL", q.sql)
+
+    // execute all of the statements
+    for _, stmt := range ast.Statements {
+        err = q.Query(ctx, stmt)
+        if err != nil {
+            return q.session.Write(errMsg(err))
+        }
+    }
+
+    return nil
 }
