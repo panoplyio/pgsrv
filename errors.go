@@ -71,20 +71,21 @@ func WithHint(err error, hint string, args ...interface{}) Err {
     return e
 }
 
-// Undefined indicates that a certain entity (function, column, etc.) is not
+// Unrecognized indicates that a certain entity (function, column, etc.) is not
 // registered or available for use.
-func Undefined(msg string, args ...interface{}) Err {
-    msg = fmt.Sprintf("Undefined " + msg, args...)
-    return &err{M: msg, C: "42703", L: -1}
+func Unrecognized(msg string, args ...interface{}) Err {
+    msg = fmt.Sprintf("unrecognized " + msg, args...)
+    return &err{M: msg, C: "42000", L: -1}
 }
 
 // Invalid indicates that the user request is invalid or otherwise incorrect.
 // It's very much similar to a syntax error, except that the invalidity is
 // logical within the request rather than syntactic. For example, using a non-
-// boolean expression in WHERE
+// boolean expression in WHERE, or when a requested data type, table, or
+// function is undefined.
 func Invalid(msg string, args ...interface{}) Err {
-    msg = fmt.Sprintf("Invalid " + msg, args...)
-    return &err{M: msg, C: "22000", L: -1}
+    msg = fmt.Sprintf("invalid " + msg, args...)
+    return &err{M: msg, C: "42000", L: -1}
 }
 
 // Unsupported indicates that a certain feature is not supported. Unlike
@@ -92,7 +93,7 @@ func Invalid(msg string, args ...interface{}) Err {
 // recognized but when the recognized entity cannot perform some of its
 // functionality
 func Unsupported(msg string, args ...interface{}) Err {
-    msg = fmt.Sprintf("Unsupported " + msg, args...)
+    msg = fmt.Sprintf("unsupported " + msg, args...)
     return &err{M: msg, C: "0A000", L: -1}
 }
 
