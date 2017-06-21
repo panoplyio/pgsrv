@@ -88,6 +88,13 @@ func Invalid(msg string, args ...interface{}) Err {
     return &err{M: msg, C: "42000", L: -1}
 }
 
+// Disallowed indicates a permissions, authorization or permanently disallowed
+// operation - access to table data, alerting users, etc.
+func Disallowed(msg string, args ...interface{}) Err {
+    msg = fmt.Sprintf("disallowed " + msg, args...)
+    return &err{M: msg, C: "42000", L: -1}
+}
+
 // Unsupported indicates that a certain feature is not supported. Unlike
 // Undefined - this error is not for cases where a user-space entity is not
 // recognized but when the recognized entity cannot perform some of its
