@@ -1,0 +1,22 @@
+language: go
+
+branches:
+  only:
+    - master
+
+go:
+  - 1.7.4
+
+install:
+  - go get -u github.com/golang/lint/golint
+  - go get github.com/lfittl/pg_query_go
+  - export PATH=$PATH:$HOME/.local/bin
+
+script:
+  - golint -set_exit_status
+  - go test -v ./... -cover
+
+notifications:
+  email:
+    on_success: change
+    on_failure: always
