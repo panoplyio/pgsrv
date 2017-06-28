@@ -14,7 +14,7 @@ install:
 
 script:
   - golint
-  - go vet ./...
+  - go tool vet -v .
   - go test -v ./... -cover
 
 notifications:
