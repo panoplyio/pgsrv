@@ -60,12 +60,14 @@ func (q *query) Query(ctx context.Context, n nodes.Node) error {
     }
 
     // build columns from the provided columns list
-    cols := []*column{}
-    for _, col := range rows.Columns() {
-        cols = append(cols, &column{col})
+    cols := rows.Columns()
+    types := make([]string, len(cols))
+    rowsTypes, ok := rows.(driver.RowsColumnTypeDatabaseTypeName)
+    for i := 0 ; i < len(types) && ok ; i++ {
+        types[i] = rowsTypes.ColumnTypeDatabaseTypeName(i)
     }
 
-    err = q.session.Write(rowDescriptionMsg(cols))
+    err = q.session.Write(rowDescriptionMsg(cols, types))
     if err != nil {
         return err
     }

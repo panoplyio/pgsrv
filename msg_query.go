@@ -5,6 +5,30 @@ import (
     "encoding/binary"
 )
 
+var TypesOid = map[string]int{
+    "BOOL": 16,
+    "BYTEA": 17,
+    "CHAR": 18,
+    "INT8": 20,
+    "INT2": 21,
+    "INT4": 23,
+    "INT": 20,
+    "TEXT": 25,
+    "JSON": 114,
+    "XML": 142,
+    "FLOAT4": 700,
+    "FLOAT8": 701,
+    "VARCHAR": 1043,
+    "DATE": 1082,
+    "TIME": 1083,
+    "TIMESTAMP": 1114,
+    "TIMESTAMPZ": 1184,
+    "INTERVAL": 1186,
+    "NUMERIC": 1700,
+    "JSONB": 3802,
+    "ANY": 2276,
+}
+
 // QueryText returns the SQL query string from a Query or Parse message
 func (m msg) QueryText() (string, error) {
     if m.Type() != 'Q' {
@@ -16,12 +40,13 @@ func (m msg) QueryText() (string, error) {
 
 // RowDescriptionMsg is a message indicating that DataRow messages are about to
 // be transmitted and delivers their schema (column names/types)
-func rowDescriptionMsg(cols []*column) msg {
+func rowDescriptionMsg(cols, types []string) msg {
     msg := []byte{'T', /* LEN = */ 0, 0, 0, 0, /* NUM FIELDS = */ 0, 0}
     binary.BigEndian.PutUint16(msg[5:], uint16(len(cols)))
 
-    for _, c := range cols {
-        msg = append(msg, []byte(c.name)...)
+    fmt.Println("Types", types)
+    for i, c := range cols {
+        msg = append(msg, []byte(c)...)
         msg = append(msg, 0) // NULL TERMINATED
 
         msg = append(msg, 0, 0, 0, 0) // object ID of the table; otherwise zero
@@ -29,8 +54,7 @@ func rowDescriptionMsg(cols []*column) msg {
 
         // object ID of the field's data type
         oid := []byte{0,0,0,0}
-        // binary.BigEndian.PutUint32(oid, uint32(c.TypeOid()))
-        binary.BigEndian.PutUint32(oid, uint32(0))
+        binary.BigEndian.PutUint32(oid, uint32(TypesOid[types[i]]))
         msg = append(msg, oid...)
         msg = append(msg, 0, 0) // data type size
         msg = append(msg, 0, 0, 0, 0) // type modifier
