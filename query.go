@@ -91,7 +91,7 @@ func (q *query) Query(ctx context.Context, n nodes.Node) error {
             return err
         }
 
-        count += 1
+        count++
     }
 
     tag := fmt.Sprintf("SELECT %d", count)
