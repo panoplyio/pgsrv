@@ -44,7 +44,6 @@ func rowDescriptionMsg(cols, types []string) msg {
     msg := []byte{'T', /* LEN = */ 0, 0, 0, 0, /* NUM FIELDS = */ 0, 0}
     binary.BigEndian.PutUint16(msg[5:], uint16(len(cols)))
 
-    fmt.Println("Types", types)
     for i, c := range cols {
         msg = append(msg, []byte(c)...)
         msg = append(msg, 0) // NULL TERMINATED
