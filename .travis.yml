@@ -5,7 +5,7 @@ branches:
     - master
 
 go:
-  - 1.7.4
+  - 1.8.3
 
 install:
   - go get -u github.com/golang/lint/golint
@@ -13,7 +13,8 @@ install:
   - export PATH=$PATH:$HOME/.local/bin
 
 script:
-  - golint -set_exit_status
+  - golint
+  - go vet ./...
   - go test -v ./... -cover
 
 notifications:
