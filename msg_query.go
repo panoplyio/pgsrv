@@ -52,8 +52,13 @@ func rowDescriptionMsg(cols, types []string) msg {
         msg = append(msg, 0, 0) // attribute number of the column; otherwise zero
 
         // object ID of the field's data type
+        typeOid := TypesOid[types[i]]
+        if typeOid == 0 {
+            typeOid = TypesOid["TEXT"]
+        }
+
         oid := []byte{0,0,0,0}
-        binary.BigEndian.PutUint32(oid, uint32(TypesOid[types[i]]))
+        binary.BigEndian.PutUint32(oid, uint32(typeOid))
         msg = append(msg, oid...)
         msg = append(msg, 0, 0) // data type size
         msg = append(msg, 0, 0, 0, 0) // type modifier
