@@ -11,7 +11,7 @@ import (
     nodes "github.com/lfittl/pg_query_go/nodes"
 )
 
-var AllSessions = map[int32]*session{}
+var allSessions = map[int32]*session{}
 
 // Session represents a single client-connection, and handles all of the
 // communications with that client.
@@ -53,7 +53,7 @@ func (s *session) Serve() error {
             return err
         }
 
-        s := AllSessions[pid]
+        s := allSessions[pid]
         if s == nil {
             _, cancelFunc := context.WithCancel(context.Background())
             cancelFunc()
@@ -102,12 +102,12 @@ func (s *session) Serve() error {
     s.Secret = rand.Int31()
 
     pid := rand.Int31()
-    for AllSessions[pid] != nil {
-        pid += 1
+    for allSessions[pid] != nil {
+        pid++
     }
 
-    AllSessions[pid] = s
-    defer delete(AllSessions, pid)
+    allSessions[pid] = s
+    defer delete(allSessions, pid)
 
     // notify the client of the pid and secret to be passed back when it wishes
     // to interrupt this session
@@ -152,8 +152,6 @@ func (s *session) Serve() error {
             return err
         }
     }
-
-    return nil
 }
 
 // Read reads and returns a single message from the connection.
