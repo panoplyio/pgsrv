@@ -19,5 +19,7 @@ script:
 
 notifications:
   email:
+    recipients:
+      - hackers@panoply.io
     on_success: change
     on_failure: always
