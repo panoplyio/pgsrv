@@ -51,3 +51,12 @@ type Server interface {
 	// Manually serve a connection
 	Serve(net.Conn) error // blocks. Run in go-routine.
 }
+
+// general pgsrv constants to manage session and queries info
+type ctxKey string
+
+const (
+	sessionCtxKey ctxKey = "Session"
+	sqlCtxKey     ctxKey = "SQL"
+	astCtxKey     ctxKey = "AST"
+)

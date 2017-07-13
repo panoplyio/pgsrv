@@ -31,9 +31,9 @@ func (q *query) Run() error {
 	// add the session to the context, cast to the Session interface just for
 	// compile time verification that the interface is implemented.
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "Session", Session(q.session))
-	ctx = context.WithValue(ctx, "SQL", q.sql)
-	ctx = context.WithValue(ctx, "AST", ast)
+	ctx = context.WithValue(ctx, sessionCtxKey, Session(q.session))
+	ctx = context.WithValue(ctx, sqlCtxKey, q.sql)
+	ctx = context.WithValue(ctx, astCtxKey, ast)
 
 	// execute all of the statements
 	for _, stmt := range ast.Statements {
@@ -120,6 +120,11 @@ func (q *query) Exec(ctx context.Context, n nodes.Node) error {
 	}
 
 	return q.session.Write(completeMsg(tag))
+}
+
+// QueryFromContext returns the sql string as saved in the given context
+func QueryFromContext(ctx context.Context) string {
+	return ctx.Value(sqlCtxKey).(string)
 }
 
 // implements the CommandComplete tag according to the spec as described at the
