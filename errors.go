@@ -1,7 +1,7 @@
 package pgsrv
 
 import (
-    "fmt"
+	"fmt"
 )
 
 // Err is a postgres-compatible error object. It's not required to be used, as
@@ -26,35 +26,35 @@ import (
 type Err error
 
 type err struct {
-    M string // Message
-    H string // Hint
-    C string // Code
-    L int    // Location
+	M string // Message
+	H string // Hint
+	C string // Code
+	L int    // Location
 }
 
 func (e *err) Error() string { return e.M }
-func (e *err) Hint() string { return e.H }
-func (e *err) Code() string { return e.C }
-func (e *err) Loc() int { return e.L }
+func (e *err) Hint() string  { return e.H }
+func (e *err) Code() string  { return e.C }
+func (e *err) Loc() int      { return e.L }
 
 // WithLoc decorates an error object to also include the cursor position
 // location) for the error in the original query text. This is useful to provide
 // the client with a specific marker of where the error occured in his SQL
 func WithLoc(err error, loc int) Err {
-    if err == nil {
-        return nil
-    }
+	if err == nil {
+		return nil
+	}
 
-    e := fromErr(err)
+	e := fromErr(err)
 
-    // keep the bottom-most location
-    // This is because we don't want top-level errors to override the actual
-    // location where the error originated
-    if e.L < 0 {
-        e.L = loc
-    }
+	// keep the bottom-most location
+	// This is because we don't want top-level errors to override the actual
+	// location where the error originated
+	if e.L < 0 {
+		e.L = loc
+	}
 
-    return e
+	return e
 }
 
 // WithHint decorates an error object to also include a suggestion what to do
@@ -62,20 +62,20 @@ func WithLoc(err error, loc int) Err {
 // advice (potentially inappropriate) rather than hard facts. Might run to
 // multiple lines
 func WithHint(err error, hint string, args ...interface{}) Err {
-    if err == nil {
-        return nil
-    }
+	if err == nil {
+		return nil
+	}
 
-    e := fromErr(err)
-    e.H = fmt.Sprintf(hint, args...)
-    return e
+	e := fromErr(err)
+	e.H = fmt.Sprintf(hint, args...)
+	return e
 }
 
 // Unrecognized indicates that a certain entity (function, column, etc.) is not
 // registered or available for use.
 func Unrecognized(msg string, args ...interface{}) Err {
-    msg = fmt.Sprintf("unrecognized " + msg, args...)
-    return &err{M: msg, C: "42000", L: -1}
+	msg = fmt.Sprintf("unrecognized "+msg, args...)
+	return &err{M: msg, C: "42000", L: -1}
 }
 
 // Invalid indicates that the user request is invalid or otherwise incorrect.
@@ -84,15 +84,15 @@ func Unrecognized(msg string, args ...interface{}) Err {
 // boolean expression in WHERE, or when a requested data type, table, or
 // function is undefined.
 func Invalid(msg string, args ...interface{}) Err {
-    msg = fmt.Sprintf("invalid " + msg, args...)
-    return &err{M: msg, C: "42000", L: -1}
+	msg = fmt.Sprintf("invalid "+msg, args...)
+	return &err{M: msg, C: "42000", L: -1}
 }
 
 // Disallowed indicates a permissions, authorization or permanently disallowed
 // operation - access to table data, alerting users, etc.
 func Disallowed(msg string, args ...interface{}) Err {
-    msg = fmt.Sprintf("disallowed " + msg, args...)
-    return &err{M: msg, C: "42000", L: -1}
+	msg = fmt.Sprintf("disallowed "+msg, args...)
+	return &err{M: msg, C: "42000", L: -1}
 }
 
 // Unsupported indicates that a certain feature is not supported. Unlike
@@ -100,35 +100,40 @@ func Disallowed(msg string, args ...interface{}) Err {
 // recognized but when the recognized entity cannot perform some of its
 // functionality
 func Unsupported(msg string, args ...interface{}) Err {
-    msg = fmt.Sprintf("unsupported " + msg, args...)
-    return &err{M: msg, C: "0A000", L: -1}
+	msg = fmt.Sprintf("unsupported "+msg, args...)
+	return &err{M: msg, C: "0A000", L: -1}
 }
 
-
 func fromErr(e error) *err {
-    err1, ok := e.(*err)
-    if ok {
-        return err1
-    }
+	err1, ok := e.(*err)
+	if ok {
+		return err1
+	}
 
-    m := e.Error()
-    locer, ok := e.(interface { Loc() int })
-    l := -1
-    if ok {
-        l = locer.Loc()
-    }
+	m := e.Error()
+	locer, ok := e.(interface {
+		Loc() int
+	})
+	l := -1
+	if ok {
+		l = locer.Loc()
+	}
 
-    coder, ok := e.(interface { Code() string })
-    c := ""
-    if ok {
-        c = coder.Code()
-    }
+	coder, ok := e.(interface {
+		Code() string
+	})
+	c := ""
+	if ok {
+		c = coder.Code()
+	}
 
-    hinter, ok := e.(interface { Hint() string })
-    h := ""
-    if ok {
-        h = hinter.Hint()
-    }
+	hinter, ok := e.(interface {
+		Hint() string
+	})
+	h := ""
+	if ok {
+		h = hinter.Hint()
+	}
 
-    return &err{M: m, C: c, L: l, H: h}
+	return &err{M: m, C: c, L: l, H: h}
 }

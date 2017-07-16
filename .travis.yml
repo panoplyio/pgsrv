@@ -13,11 +13,18 @@ install:
   - export PATH=$PATH:$HOME/.local/bin
 
 script:
-  - golint
-  - go tool vet -v .
+  - go tool vet .
+  - golint -set_exit_status ./...
+  - gofmt -l . | exit $(wc -l)
   - go test -v ./... -cover
 
 notifications:
+  slack:
+    rooms:
+        - panoplyio:LeK4hoOIDsRiBBAhgXKnSAD0#builds
+    on_pull_requests: false
+    on_success: change
+    on_failure: always
   email:
     recipients:
       - hackers@panoply.io
