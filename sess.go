@@ -9,9 +9,10 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"sync"
 )
 
-var allSessions = map[int32]*session{}
+var allSessions sync.Map
 
 // Session represents a single client-connection, and handles all of the
 // communications with that client.
@@ -53,12 +54,12 @@ func (s *session) Serve() error {
 			return err
 		}
 
-		s := allSessions[pid]
-		if s == nil {
+		s, ok := allSessions.Load(pid)
+		if !ok || s == nil {
 			_, cancelFunc := context.WithCancel(context.Background())
 			cancelFunc()
-		} else if s.Secret == secret {
-			s.CancelFunc() // intentionally doesn't report success to frontend
+		} else if s.(*session).Secret == secret {
+			s.(*session).CancelFunc() // intentionally doesn't report success to frontend
 		}
 
 		return nil // disconnect.
@@ -102,12 +103,12 @@ func (s *session) Serve() error {
 	s.Secret = rand.Int31()
 
 	pid := rand.Int31()
-	for allSessions[pid] != nil {
-		pid++
+	for s1, ok := allSessions.Load(pid); ok && s1 != nil; pid++ {
+		s1, ok = allSessions.Load(pid)
 	}
 
-	allSessions[pid] = s
-	defer delete(allSessions, pid)
+	allSessions.Store(pid, s)
+	defer allSessions.Delete(pid)
 
 	// notify the client of the pid and secret to be passed back when it wishes
 	// to interrupt this session
