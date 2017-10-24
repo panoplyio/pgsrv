@@ -16,7 +16,7 @@ script:
   - go tool vet .
   - golint -set_exit_status ./...
   - gofmt -l . | exit $(wc -l)
-  - go test -v ./... -cover
+  - go test -v ./... -cover -race
 
 notifications:
   slack:
