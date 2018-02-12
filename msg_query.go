@@ -100,7 +100,7 @@ func errMsg(err error) msg {
 
 	// https://www.postgresql.org/docs/9.3/static/protocol-error-fields.html
 	fields := map[string]string{
-		"S": "ERROR",
+		"S": "ERROR", // Severity
 		"C": "XX000",
 		"M": err.Error(),
 	}
@@ -113,6 +113,14 @@ func errMsg(err error) msg {
 		fields["C"] = errCode.Code()
 	}
 
+	// detail
+	errDetail, ok := err.(interface {
+		Detail() string
+	})
+	if ok && errDetail.Detail() != "" {
+		fields["D"] = errDetail.Detail()
+	}
+
 	// hint
 	errHint, ok := err.(interface {
 		Hint() string
@@ -122,11 +130,11 @@ func errMsg(err error) msg {
 	}
 
 	// cursor position
-	errLoc, ok := err.(interface {
-		Loc() int
+	errPosition, ok := err.(interface {
+		Position() int
 	})
-	if ok && errLoc.Loc() >= 0 {
-		fields["P"] = fmt.Sprintf("%d", errLoc.Loc())
+	if ok && errPosition.Position() >= 0 {
+		fields["P"] = fmt.Sprintf("%d", errPosition.Position())
 	}
 
 	for k, v := range fields {
