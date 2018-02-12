@@ -26,41 +26,36 @@ import (
 type Err error
 
 type err struct {
-	M string // Message
-	H string // Hint
 	C string // Code
-	L int    // Location
+	M string // Message
+	D string // Detail
+	H string // Hint
+	P int    // Position
 }
 
-func (e *err) Error() string { return e.M }
-func (e *err) Hint() string  { return e.H }
-func (e *err) Code() string  { return e.C }
-func (e *err) Loc() int      { return e.L }
+func (e *err) Code() string   { return e.C }
+func (e *err) Error() string  { return e.M }
+func (e *err) Detail() string { return e.D }
+func (e *err) Hint() string   { return e.H }
+func (e *err) Position() int  { return e.P }
 
-// WithLoc decorates an error object to also include the cursor position
-// location) for the error in the original query text. This is useful to provide
-// the client with a specific marker of where the error occured in his SQL
-func WithLoc(err error, loc int) Err {
+// WithDetail decorates an error object to also include  an optional secondary
+// error message carrying more detail about the problem. Might run to multiple
+// lines
+func WithDetail(err error, detail string, args ...interface{}) Err {
 	if err == nil {
 		return nil
 	}
 
 	e := fromErr(err)
-
-	// keep the bottom-most location
-	// This is because we don't want top-level errors to override the actual
-	// location where the error originated
-	if e.L < 0 {
-		e.L = loc
-	}
-
+	e.D = fmt.Sprintf(detail, args...)
 	return e
 }
 
-// WithHint decorates an error object to also include a suggestion what to do
-// about the problem. This is intended to differ from Detail in that it offers
-// advice (potentially inappropriate) rather than hard facts. Might run to
-// multiple lines
+// WithHint decorates an error object to also include an optional suggestion what
+// to do about the problem. This is intended to differ from Detail in that it
+// offers advice (potentially inappropriate) rather than hard facts. Might run
+// to multiple lines
 func WithHint(err error, hint string, args ...interface{}) Err {
 	if err == nil {
 		return nil
@@ -71,11 +66,30 @@ func WithHint(err error, hint string, args ...interface{}) Err {
 	return e
 }
 
+// WithPosition decorates an error object to also include the cursor position
+// (location) for the error in the original query string. Positions are measured
+// in characters not bytes. This is useful to provide the client a specific
+// marker of where the error occurred in his SQL
+func WithPosition(err error, position int) Err {
+	if err == nil {
+		return nil
+	}
+
+	e := fromErr(err)
+
+	// keep the bottom-most position, which is the origin of the error,
+	// by prevent top-level errors to override actual origin position
+	if e.P < 0 {
+		e.P = position
+	}
+	return e
+}
+
 // Unrecognized indicates that a certain entity (function, column, etc.) is not
 // registered or available for use.
 func Unrecognized(msg string, args ...interface{}) Err {
 	msg = fmt.Sprintf("unrecognized "+msg, args...)
-	return &err{M: msg, C: "42000", L: -1}
+	return &err{M: msg, C: "42000", P: -1}
 }
 
 // Invalid indicates that the user request is invalid or otherwise incorrect.
@@ -85,14 +99,14 @@ func Unrecognized(msg string, args ...interface{}) Err {
 // function is undefined.
 func Invalid(msg string, args ...interface{}) Err {
 	msg = fmt.Sprintf("invalid "+msg, args...)
-	return &err{M: msg, C: "42000", L: -1}
+	return &err{M: msg, C: "42000", P: -1}
 }
 
 // Disallowed indicates a permissions, authorization or permanently disallowed
 // operation - access to table data, alerting users, etc.
 func Disallowed(msg string, args ...interface{}) Err {
 	msg = fmt.Sprintf("disallowed "+msg, args...)
-	return &err{M: msg, C: "42000", L: -1}
+	return &err{M: msg, C: "42000", P: -1}
 }
 
 // Unsupported indicates that a certain feature is not supported. Unlike
@@ -101,7 +115,7 @@ func Disallowed(msg string, args ...interface{}) Err {
 // functionality
 func Unsupported(msg string, args ...interface{}) Err {
 	msg = fmt.Sprintf("unsupported "+msg, args...)
-	return &err{M: msg, C: "0A000", L: -1}
+	return &err{M: msg, C: "0A000", P: -1}
 }
 
 func fromErr(e error) *err {
@@ -135,5 +149,5 @@ func fromErr(e error) *err {
 		h = hinter.Hint()
 	}
 
-	return &err{M: m, C: c, L: l, H: h}
+	return &err{M: m, C: c, P: l, H: h}
 }

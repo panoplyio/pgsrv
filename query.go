@@ -15,10 +15,6 @@ type query struct {
 	numCols int
 }
 
-type column struct {
-	name string
-}
-
 // Run the query using the Server's defined queryer
 func (q *query) Run() error {
 

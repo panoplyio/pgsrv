@@ -7,6 +7,12 @@ branches:
 go:
   - 1.9.x
 
+env:
+  global:
+    # require by lfittl/pg_query_go. this flag is unrecognized by >=go1.9.4.
+    # TODO remove once go's whitelist will include it. see https://github.com/golang/go/issues/23749
+    - CGO_LDFLAGS_ALLOW='-fstack-protector'
+
 install:
   - go get -u github.com/golang/lint/golint
   - go get github.com/lfittl/pg_query_go
@@ -21,7 +27,7 @@ script:
 notifications:
   slack:
     rooms:
-        - panoplyio:LeK4hoOIDsRiBBAhgXKnSAD0#builds
+      - panoplyio:LeK4hoOIDsRiBBAhgXKnSAD0#builds
     on_pull_requests: false
     on_success: change
     on_failure: always
