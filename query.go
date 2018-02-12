@@ -15,16 +15,13 @@ type query struct {
 	numCols int
 }
 
-type column struct {
-	name string
-}
-
 // Run the query using the Server's defined queryer
 func (q *query) Run() error {
 
 	// parse the query
 	ast, err := parser.Parse(q.sql)
 	if err != nil {
+		fmt.Printf("%+v\n", err)
 		return q.session.Write(errMsg(err))
 	}
 
