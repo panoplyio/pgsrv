@@ -26,17 +26,17 @@ import (
 type Err error
 
 type err struct {
+	C string // Code
 	M string // Message
 	D string // Detail
 	H string // Hint
-	C string // Code
 	P int    // Position
 }
 
+func (e *err) Code() string   { return e.C }
 func (e *err) Error() string  { return e.M }
 func (e *err) Detail() string { return e.D }
 func (e *err) Hint() string   { return e.H }
-func (e *err) Code() string   { return e.C }
 func (e *err) Position() int  { return e.P }
 
 // WithDetail decorates an error object to also include  an optional secondary

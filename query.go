@@ -21,7 +21,6 @@ func (q *query) Run() error {
 	// parse the query
 	ast, err := parser.Parse(q.sql)
 	if err != nil {
-		fmt.Printf("%+v\n", err)
 		return q.session.Write(errMsg(err))
 	}
 
