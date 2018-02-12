@@ -124,21 +124,22 @@ func fromErr(e error) *err {
 		return err1
 	}
 
-	m := e.Error()
-	locer, ok := e.(interface {
-		Loc() int
-	})
-	l := -1
-	if ok {
-		l = locer.Loc()
-	}
-
 	coder, ok := e.(interface {
 		Code() string
 	})
 	c := ""
 	if ok {
 		c = coder.Code()
+	}
+
+	m := e.Error()
+
+	detailer, ok := e.(interface {
+		Detail() string
+	})
+	d := ""
+	if ok {
+		d = detailer.Detail()
 	}
 
 	hinter, ok := e.(interface {
@@ -149,5 +150,13 @@ func fromErr(e error) *err {
 		h = hinter.Hint()
 	}
 
-	return &err{M: m, C: c, P: l, H: h}
+	positioner, ok := e.(interface {
+		Position() int
+	})
+	p := -1
+	if ok {
+		p = positioner.Position()
+	}
+
+	return &err{C: c, M: m, D: d, H: h, P: p}
 }
