@@ -35,11 +35,13 @@ func (q *query) Run() error {
 	for _, stmt := range ast.Statements {
 
 		// determine if it's a query or command
-		switch stmt.(type) {
+		switch s := stmt.(type) {
 		case nodes.VariableShowStmt:
 			err = q.Query(ctx, stmt)
 		case nodes.SelectStmt:
 			err = q.Query(ctx, stmt)
+		case nodes.RawStmt:
+			err = q.Query(ctx, s.Stmt)
 		default:
 			err = q.Exec(ctx, stmt)
 		}
