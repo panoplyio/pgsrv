@@ -34,14 +34,17 @@ func (q *query) Run() error {
 	// execute all of the statements
 	for _, stmt := range ast.Statements {
 
+		rawStmt, isRaw := stmt.(nodes.RawStmt)
+		if isRaw {
+			stmt = rawStmt.Stmt
+		}
+
 		// determine if it's a query or command
-		switch s := stmt.(type) {
+		switch stmt.(type) {
 		case nodes.VariableShowStmt:
 			err = q.Query(ctx, stmt)
 		case nodes.SelectStmt:
 			err = q.Query(ctx, stmt)
-		case nodes.RawStmt:
-			err = q.Query(ctx, s.Stmt)
 		default:
 			err = q.Exec(ctx, stmt)
 		}
