@@ -17,7 +17,6 @@ type query struct {
 
 // Run the query using the Server's defined queryer
 func (q *query) Run() error {
-
 	// parse the query
 	ast, err := parser.Parse(q.sql)
 	if err != nil {
@@ -33,6 +32,10 @@ func (q *query) Run() error {
 
 	// execute all of the statements
 	for _, stmt := range ast.Statements {
+		rawStmt, isRaw := stmt.(nodes.RawStmt)
+		if isRaw {
+			stmt = rawStmt.Stmt
+		}
 
 		// determine if it's a query or command
 		switch stmt.(type) {
@@ -48,7 +51,6 @@ func (q *query) Run() error {
 			return q.session.Write(errMsg(err))
 		}
 	}
-
 	return nil
 }
 
@@ -114,7 +116,6 @@ func (q *query) Exec(ctx context.Context, n nodes.Node) error {
 	if err != nil {
 		return q.session.Write(errMsg(err))
 	}
-
 	return q.session.Write(completeMsg(tag))
 }
 
@@ -156,6 +157,5 @@ func (res *tagger) Tag() (string, error) {
 	default:
 		tag = "UPDATE"
 	}
-
 	return fmt.Sprintf("%s %d", tag, affected), nil
 }
