@@ -7,19 +7,13 @@ branches:
 go:
   - 1.10.x
 
-env:
-  global:
-    # require by lfittl/pg_query_go. this flag is unrecognized by >=go1.9.4.
-    # TODO remove once go's whitelist will include it. see https://github.com/golang/go/issues/23749
-    - CGO_LDFLAGS_ALLOW='-fstack-protector'
-
 install:
   - go get -u github.com/golang/lint/golint
   - go get github.com/lfittl/pg_query_go
   - export PATH=$PATH:$HOME/.local/bin
 
 script:
-  - go tool vet .
+  - go vet ./...
   - golint -set_exit_status ./...
   - gofmt -l . | exit $(wc -l)
   - go test -v ./... -cover -race
@@ -27,7 +21,7 @@ script:
 notifications:
   slack:
     rooms:
-      - panoplyio:LeK4hoOIDsRiBBAhgXKnSAD0#builds
+      secure: t9Zsyc/KkiN+yO6mEpHKNfIP2e3gf8Ta86/UBySMgteSbu5IkTBGx+ZajDpLYslHPNVQBfNU5HjVAGGWJwuzFeUvAHN/1+MEOmpPb9+ygmn1jwE9GFpQfGoG1SLTObmmElah9j9LDRDqfrKfUsHKU6pM1nFkSq+emCTYg7SODI5RdnAjWinGV8cRdlC9r+s7uKDE22wWgpa+39aPw9X6M+Co7xWsDYXTnGY9uMY+LCX3xjLB5rfOunb9GOYwgkS8PRLZibF+xD7OEHtxfrHjWObzq6JGHtGAci7zApfSRhISJb24RF50DaC2frWs0gGdhwbzXnH7mPOxSGyNpqFgKc+1xQQcL4+0HzpPekRDVnroYONx26rdKMiiN5TSnrHImRGH0lTXqNuO/ROtvsHNTCTOykiVy1r1bubPxEGejZm00tH3KqF7UlcDQwZkmz2nCSKThqBxs5XrDwKK06VjjUZkdESReHQbjQ0GByiMz/qqKC82Lx3CjSej44SKYNcjYhSswk0XixKJUIV9lBH5WVmN2TJStEuxgtQk8f0aHAhYzSWNwSlAFD7hJJD33WkNgQcPK+AOdKfVvR84X5OvfeSsZgHbZsVPSyLw3SEaEiAFc6s8JVGhDs6ggmhnae4CKcoO1hGesfaDsyXIdfiNvwsSHNU+hckUM3ChHb5BXKc=
     on_pull_requests: false
     on_success: change
     on_failure: always
