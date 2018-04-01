@@ -5,7 +5,8 @@ import (
 	"fmt"
 )
 
-var typesOid = map[string]int{
+// TypesOid maps between a type name to its corresponding OID
+var TypesOid = map[string]int{
 	"BOOL":       16,
 	"BYTEA":      17,
 	"CHAR":       18,
@@ -52,9 +53,9 @@ func rowDescriptionMsg(cols, types []string) msg {
 		msg = append(msg, 0, 0)       // attribute number of the column; otherwise zero
 
 		// object ID of the field's data type
-		typeOid := typesOid[types[i]]
+		typeOid := TypesOid[types[i]]
 		if typeOid == 0 {
-			typeOid = typesOid["TEXT"]
+			typeOid = TypesOid["TEXT"]
 		}
 
 		oid := []byte{0, 0, 0, 0}
