@@ -41,7 +41,6 @@ func (s *session) Exec(ctx context.Context, n nodes.Node) (driver.Result, error)
 
 // Handle a connection session
 func (s *session) Serve() error {
-
 	// read the initial connection startup message
 	msg, err := s.Read()
 	if err != nil {
