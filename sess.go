@@ -92,8 +92,16 @@ func (s *session) Serve() error {
 		return err
 	}
 
+	s.initialized = true
+
 	// handle authentication.
-	err = s.Write(authOKMsg())
+	a := &authenticationNoPassword{}
+	authResponse, err := a.authenticate()
+	if err != nil {
+		return s.Write(errMsg(WithSeverity(err, "FATAL")))
+	}
+
+	err = s.Write(authResponse)
 	if err != nil {
 		return err
 	}
@@ -118,7 +126,6 @@ func (s *session) Serve() error {
 	}
 
 	// query-cycle
-	s.initialized = true
 	for {
 		// notify the client that we're ready for more messages.
 		err = s.Write(readyMsg())
