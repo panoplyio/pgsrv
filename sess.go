@@ -95,7 +95,13 @@ func (s *session) Serve() error {
 	s.initialized = true
 
 	// handle authentication.
-	err = s.Write(authOKMsg())
+	a := &authenticationNoPassword{}
+	authResponse, err := a.authenticate()
+	if err != nil {
+		return s.Write(errMsg(WithSeverity(err, "FATAL")))
+	}
+
+	err = s.Write(authResponse)
 	if err != nil {
 		return err
 	}
