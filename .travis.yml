@@ -8,8 +8,8 @@ go:
   - 1.10.x
 
 install:
-  - go get -t -v ./... # all deps
   - go get -u github.com/golang/lint/golint
+  - go get -t -v ./...
   - export PATH=$PATH:$HOME/.local/bin
 
 script:
