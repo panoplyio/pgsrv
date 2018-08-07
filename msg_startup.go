@@ -82,12 +82,6 @@ func tlsResponseMsg(supported bool) msg {
 	return msg([]byte{b})
 }
 
-// NewAuthOK creates a new message indicating that the authentication was
-// successful
-func authOKMsg() msg {
-	return []byte{'R', 0, 0, 0, 8, 0, 0, 0, 0}
-}
-
 // KeyDataMsg creates a new message providing the client with a process ID and
 // secret key that it can later use to cancel running queries
 func keyDataMsg(pid int32, secret int32) msg {

@@ -141,6 +141,11 @@ func (a *authenticationMD5) authenticate() (msg, error) {
 	return authOKMsg(), nil
 }
 
+// authOKMsg returns a message that indicates that the client is now authenticated.
+func authOKMsg() msg {
+	return []byte{'R', 0, 0, 0, 8, 0, 0, 0, 0}
+}
+
 // getRandomSalt returns a cryptographically secure random slice of 4 bytes.
 func getRandomSalt() []byte {
 	salt := make([]byte, 4)
