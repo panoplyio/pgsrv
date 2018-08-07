@@ -7,6 +7,13 @@ import (
 
 var authOKMessage = msg{'R', 0, 0, 0, 8, 0, 0, 0, 0}
 
+func TestAuthOKMsg(t *testing.T) {
+	actualResult := authOKMsg()
+	expectedResult := authOKMessage
+
+	require.Equal(t, expectedResult, actualResult)
+}
+
 func TestNoPassword_authenticate(t *testing.T) {
 	np := &authenticationNoPassword{}
 	actualResult, err := np.authenticate()
