@@ -5,10 +5,12 @@ import (
 	"testing"
 )
 
+var authOKMessage = msg{'R', 0, 0, 0, 8, 0, 0, 0, 0}
+
 func TestNoPassword_authenticate(t *testing.T) {
 	np := &authenticationNoPassword{}
 	actualResult, err := np.authenticate()
-	expectedResult := msg{'R', 0, 0, 0, 8, 0, 0, 0, 0}
+	expectedResult := authOKMessage
 
 	require.NoError(t, err)
 	require.Equal(t, actualResult, expectedResult)
@@ -29,7 +31,7 @@ func TestAuthenticationClearText_authenticate(t *testing.T) {
 	a := &authenticationClearText{rw, args, pp}
 
 	t.Run("valid password", func(t *testing.T) {
-		expectedResult := authOKMsg()
+		expectedResult := authOKMessage
 		actualResult, err := a.authenticate()
 
 		require.NoError(t, err)
@@ -69,7 +71,7 @@ func TestAuthenticationMD5_authenticate(t *testing.T) {
 	a := &authenticationMD5{rw, args, pp}
 
 	t.Run("valid password", func(t *testing.T) {
-		expectedResult := authOKMsg()
+		expectedResult := authOKMessage
 		actualResult, err := a.authenticate()
 
 		require.NoError(t, err)

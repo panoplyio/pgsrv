@@ -17,7 +17,7 @@ type authenticator interface {
 type authenticationNoPassword struct{}
 
 func (*authenticationNoPassword) authenticate() (msg, error) {
-	return msg{'R', 0, 0, 0, 8, 0, 0, 0, 0}, nil
+	return authOKMsg(), nil
 }
 
 // messageReadWriter describes objects that handle client-server communication.
