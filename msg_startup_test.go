@@ -123,3 +123,9 @@ func TestTlsResponseMsg(t *testing.T) {
 		require.Equal(t, msg{'N'}, m)
 	})
 }
+
+func TestAuthOKMsg(t *testing.T) {
+	m := authOKMsg()
+
+	require.Equal(t, msg{'R', 0, 0, 0, 8, 0, 0, 0, 0}, m)
+}
