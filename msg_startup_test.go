@@ -1,6 +1,7 @@
 package pgsrv
 
 import (
+	"encoding/binary"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -150,5 +151,34 @@ func TestIsCancel(t *testing.T) {
 
 		isCancel := m.IsCancel()
 		require.False(t, isCancel)
+	})
+}
+
+func TestCancelKeyData(t *testing.T) {
+	t.Run("not a cancel message", func(t *testing.T) {
+		m := &msg{1, 2, 3, 4, 5, 6, 7, 8}
+		_, _, err := m.CancelKeyData()
+
+		require.Error(t, err)
+	})
+
+	t.Run("cancel message", func(t *testing.T) {
+		m := msg{
+			0, 0, 0, 16, 4, 210, 22, 46, // 1234.5678
+			0, 0, 0, 0, // pid
+			0, 0, 0, 0, // secret
+		}
+
+		expectedPid := uint32(1)
+		expectedSecret := uint32(2)
+
+		binary.BigEndian.PutUint32(m[8:12], expectedPid)
+		binary.BigEndian.PutUint32(m[12:16], expectedSecret)
+
+		pid, secret, err := m.CancelKeyData()
+
+		require.NoError(t, err)
+		require.Equal(t, int32(expectedPid), pid)
+		require.Equal(t, int32(expectedSecret), secret)
 	})
 }
