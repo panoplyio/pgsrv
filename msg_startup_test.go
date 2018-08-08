@@ -91,3 +91,21 @@ func TestIsTLSRequest(t *testing.T) {
 		require.False(t, isTLS)
 	})
 }
+
+func TestIsTerminate(t *testing.T) {
+	t.Run("terminate", func(t *testing.T) {
+		// an actual message with version 1234.5679
+		m := &msg{'X', 0, 0, 0, 5}
+
+		isTLS := m.IsTerminate()
+		require.True(t, isTLS)
+	})
+
+	t.Run("not tls", func(t *testing.T) {
+		// an actual message with version 1234.5679 with modified last byte
+		m := &msg{'x', 0, 0, 0, 5}
+
+		isTLS := m.IsTerminate()
+		require.False(t, isTLS)
+	})
+}
