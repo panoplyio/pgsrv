@@ -94,19 +94,17 @@ func TestIsTLSRequest(t *testing.T) {
 
 func TestIsTerminate(t *testing.T) {
 	t.Run("terminate", func(t *testing.T) {
-		// an actual message with version 1234.5679
 		m := &msg{'X', 0, 0, 0, 5}
 
-		isTLS := m.IsTerminate()
-		require.True(t, isTLS)
+		isTerminate := m.IsTerminate()
+		require.True(t, isTerminate)
 	})
 
-	t.Run("not tls", func(t *testing.T) {
-		// an actual message with version 1234.5679 with modified last byte
+	t.Run("not terminate", func(t *testing.T) {
 		m := &msg{'x', 0, 0, 0, 5}
 
-		isTLS := m.IsTerminate()
-		require.False(t, isTLS)
+		isTerminate := m.IsTerminate()
+		require.False(t, isTerminate)
 	})
 }
 
@@ -135,4 +133,22 @@ func TestKeyDataMsg(t *testing.T) {
 	expectedMessage := msg{75, 0, 0, 0, 12, 78, 251, 182, 164, 56, 45, 66, 86}
 
 	require.Equal(t, expectedMessage, m)
+}
+
+func TestIsCancel(t *testing.T) {
+	t.Run("cancel", func(t *testing.T) {
+		// an actual message with version 1234.5678
+		m := &msg{0, 0, 0, 8, 4, 210, 22, 46}
+
+		isCancel := m.IsCancel()
+		require.True(t, isCancel)
+	})
+
+	t.Run("not cancel", func(t *testing.T) {
+		// an actual message with version 1234.5678 with modified last byte
+		m := &msg{0, 0, 0, 8, 4, 210, 22, 42}
+
+		isCancel := m.IsCancel()
+		require.False(t, isCancel)
+	})
 }
