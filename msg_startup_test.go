@@ -109,3 +109,17 @@ func TestIsTerminate(t *testing.T) {
 		require.False(t, isTLS)
 	})
 }
+
+func TestTlsResponseMsg(t *testing.T) {
+	t.Run("supported", func(t *testing.T) {
+		m := tlsResponseMsg(true)
+
+		require.Equal(t, msg{'S'}, m)
+	})
+
+	t.Run("not supported", func(t *testing.T) {
+		m := tlsResponseMsg(false)
+
+		require.Equal(t, msg{'N'}, m)
+	})
+}
