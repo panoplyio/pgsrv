@@ -9,7 +9,7 @@ go:
 
 install:
   - go get -u github.com/golang/lint/golint
-  - go get github.com/lfittl/pg_query_go
+  - go get -t -v ./...
   - export PATH=$PATH:$HOME/.local/bin
 
 script:
