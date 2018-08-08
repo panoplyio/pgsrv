@@ -73,3 +73,21 @@ func TestStartupArgs(t *testing.T) {
 		require.Equal(t, expectedArgs, args)
 	})
 }
+
+func TestIsTLSRequest(t *testing.T) {
+	t.Run("tls", func(t *testing.T) {
+		// an actual message with version 1234.5679
+		m := &msg{0, 0, 0, 8, 4, 210, 22, 47}
+
+		isTLS := m.IsTLSRequest()
+		require.True(t, isTLS)
+	})
+
+	t.Run("not tls", func(t *testing.T) {
+		// an actual message with version 1234.5679 with modified last byte
+		m := &msg{0, 0, 0, 8, 4, 210, 22, 42}
+
+		isTLS := m.IsTLSRequest()
+		require.False(t, isTLS)
+	})
+}
