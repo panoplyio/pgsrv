@@ -1,6 +1,7 @@
 package pgsrv
 
 import (
+	"crypto/md5"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -73,7 +74,7 @@ func TestAuthenticationMD5_authenticate(t *testing.T) {
 	args := map[string]interface{}{
 		"user": "postgres",
 	}
-	pp := &constantPasswordProvider{password: []byte("test")}
+	pp := &md5ConstantPasswordProvider{password: []byte("test")}
 
 	a := &authenticationMD5{rw, args, pp}
 
@@ -104,10 +105,11 @@ func TestAuthenticationMD5_authenticate(t *testing.T) {
 	})
 }
 
-func TestHashUserPassword(t *testing.T) {
+func TestHashWithSalt(t *testing.T) {
 	user := "postgres"
 	pass := []byte("test")
 	salt := []byte{196, 53, 49, 235}
+	hash := md5.Sum(append(pass, []byte(user)...))
 
 	// actual hash received from psql using the above variables
 	expectedHash := []byte{
@@ -117,7 +119,7 @@ func TestHashUserPassword(t *testing.T) {
 		48, 99, 98, 56, 48,
 	}
 
-	actualHash := hashUserPassword(user, pass, salt)
+	actualHash := hashWithSalt(hash[:], salt)
 	require.Equal(t, expectedHash, actualHash)
 }
 
@@ -184,7 +186,8 @@ func (rw *mockMD5MessageReadWriter) Read() (msg, error) {
 		'p',
 		0, 0, 0, 25,
 	}
-	message = append(message, hashUserPassword(rw.user, rw.pass, rw.salt)...)
+	hash := md5.Sum(append(rw.pass, []byte(rw.user)...))
+	message = append(message, hashWithSalt(hash[:], rw.salt)...)
 	message = append(message, 0)
 	return message, nil
 }

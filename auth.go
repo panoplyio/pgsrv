@@ -43,6 +43,18 @@ func (cpp *constantPasswordProvider) getPassword(user string) ([]byte, error) {
 	return cpp.password, nil
 }
 
+// md5ConstantPasswordProvider is a password provider that returns md5 hash of a given
+// username and a constant password as md5(concat(password, user)).
+type md5ConstantPasswordProvider struct {
+	password []byte
+}
+
+func (cpp *md5ConstantPasswordProvider) getPassword(user string) ([]byte, error) {
+	pu := append(cpp.password, []byte(user)...)
+	puHash := md5.Sum(pu)
+	return puHash[:], nil
+}
+
 // authenticationClearText is an authenticator that requests and accepts a clear text password
 // from the client. It is not recommended to use it for security reasons.
 //
@@ -128,8 +140,8 @@ func (a *authenticationMD5) authenticate() (msg, error) {
 	}
 
 	user := a.args["user"].(string)
-	expectedPassword, err := a.pp.getPassword(user)
-	expectedHash := hashUserPassword(user, expectedPassword, salt)
+	storedHash, err := a.pp.getPassword(user)
+	expectedHash := hashWithSalt(storedHash, salt)
 
 	actualHash := extractPassword(m)
 
@@ -160,12 +172,12 @@ func extractPassword(m msg) []byte {
 	return m[5 : len(m)-1]
 }
 
-// hashUserPassword hashes the provided username and password with the provided salt
-// using the same MD5 hashing technique as postgresql MD5 authentication
-func hashUserPassword(user string, password, salt []byte) []byte {
+// hashWithSalt salts the provided md5 hash and hashes the result using md5.
+// The provided hash must be md5(concat(password, username))
+func hashWithSalt(hash, salt []byte) []byte {
 	// concat('md5', md5(concat(md5(concat(password, username)), random-salt)))
-	pu := append(password, []byte(user)...)
-	puHash := fmt.Sprintf("%x", md5.Sum(pu))
+	// the inner part (md5(concat())) is provided as hash argument
+	puHash := fmt.Sprintf("%x", hash)
 	puHashSalted := append([]byte(puHash), salt...)
 	finalHash := fmt.Sprintf("md5%x", md5.Sum(puHashSalted))
 	return []byte(finalHash)
