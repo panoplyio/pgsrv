@@ -4,6 +4,9 @@ import (
 	"fmt"
 )
 
+// FATAL error terminates session
+const FATAL = "FATAL"
+
 // Err is a postgres-compatible error object. It's not required to be used, as
 // any other normal error object would be converted to a generic internal error,
 // but it provides the API to generate user-friendly error messages. Note that

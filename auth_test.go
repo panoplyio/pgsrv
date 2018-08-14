@@ -1,12 +1,16 @@
 package pgsrv
 
 import (
+	"bytes"
 	"crypto/md5"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 var authOKMessage = msg{'R', 0, 0, 0, 8, 0, 0, 0, 0}
+var fatalMarker = []byte{
+	83, 70, 65, 84, 65, 76,
+}
 
 func TestAuthOKMsg(t *testing.T) {
 	actualResult := authOKMsg()
@@ -16,15 +20,25 @@ func TestAuthOKMsg(t *testing.T) {
 }
 
 func TestNoPassword_authenticate(t *testing.T) {
-	np := &noPasswordAuthenticator{}
-	actualResult, err := np.authenticate()
-	expectedResult := authOKMessage
+	rw := &mockMessageReadWriter{output: []msg{}}
+	args := map[string]interface{}{
+		"user": "this-is-user",
+	}
 
+	np := &noPasswordAuthenticator{}
+	ok, err := np.authenticate(rw, args)
+
+	require.True(t, ok)
 	require.NoError(t, err)
-	require.Equal(t, actualResult, expectedResult)
+	require.Equal(t, []msg{authOKMessage}, rw.messages)
 }
 
 func TestAuthenticationClearText_authenticate(t *testing.T) {
+	passwordRequest := msg{
+		'R',
+		0, 0, 0, 8, // length
+		0, 0, 0, 3, // clear text auth type
+	}
 	passwordMessage := msg{
 		'p',
 		0, 0, 0, 8,
@@ -36,36 +50,52 @@ func TestAuthenticationClearText_authenticate(t *testing.T) {
 	}
 	pp := &constantPasswordProvider{password: []byte("meh")}
 
-	a := &clearTextAuthenticator{rw, args, pp}
+	a := &clearTextAuthenticator{pp}
 
 	t.Run("valid password", func(t *testing.T) {
-		expectedResult := authOKMessage
-		actualResult, err := a.authenticate()
+		defer rw.Reset()
+		ok, err := a.authenticate(rw, args)
 
+		require.True(t, ok)
 		require.NoError(t, err)
-		require.Equal(t, expectedResult, actualResult)
+		expectedMessages := []msg{
+			passwordRequest,
+			authOKMessage,
+		}
+		require.Equal(t, expectedMessages, rw.messages)
 	})
 
 	t.Run("invalid password", func(t *testing.T) {
+		defer rw.Reset()
 		pp.password = []byte("shtoot")
-		_, err := a.authenticate()
+		ok, err := a.authenticate(rw, args)
 
-		require.EqualError(t, err,
-			"Password does not match for user \"this-is-user\"")
+		require.False(t, ok)
+		require.Equal(t, passwordRequest, rw.messages[0])
+		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
+		require.NoError(t, err)
 	})
 
 	t.Run("invalid message type", func(t *testing.T) {
-		a.rw = &mockMessageReadWriter{output: []msg{
+		defer rw.Reset()
+		rw = &mockMessageReadWriter{output: []msg{
 			{'q', 0, 0, 0, 5, 1},
 		}}
-		_, err := a.authenticate()
+		ok, err := a.authenticate(rw, args)
 
-		require.EqualError(t, err,
-			"expected password response, got message type q")
+		require.False(t, ok)
+		require.Equal(t, passwordRequest, rw.messages[0])
+		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
+		require.NoError(t, err)
 	})
 }
 
 func TestAuthenticationMD5_authenticate(t *testing.T) {
+	passwordRequest := msg{
+		'R',
+		0, 0, 0, 12, // length
+		0, 0, 0, 5, // md5 auth type
+	}
 	rw := &mockMD5MessageReadWriter{
 		user: "postgres",
 		pass: []byte("test"),
@@ -76,32 +106,40 @@ func TestAuthenticationMD5_authenticate(t *testing.T) {
 	}
 	pp := &md5ConstantPasswordProvider{password: []byte("test")}
 
-	a := &md5Authenticator{rw, args, pp}
+	a := &md5Authenticator{pp}
 
 	t.Run("valid password", func(t *testing.T) {
-		expectedResult := authOKMessage
-		actualResult, err := a.authenticate()
+		defer rw.Reset()
+		ok, err := a.authenticate(rw, args)
 
+		require.True(t, ok)
 		require.NoError(t, err)
-		require.Equal(t, expectedResult, actualResult)
+		require.True(t, bytes.Contains(rw.messages[0], passwordRequest))
+		require.Equal(t, authOKMessage, rw.messages[1])
 	})
 
 	t.Run("invalid password", func(t *testing.T) {
+		defer rw.Read()
 		pp.password = []byte("shtoot")
-		_, err := a.authenticate()
+		ok, err := a.authenticate(rw, args)
 
-		require.EqualError(t, err,
-			"Password does not match for user \"postgres\"")
+		require.False(t, ok)
+		require.True(t, bytes.Contains(rw.messages[0], passwordRequest))
+		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
+		require.NoError(t, err)
 	})
 
 	t.Run("invalid message type", func(t *testing.T) {
-		a.rw = &mockMessageReadWriter{output: []msg{
+		defer rw.Reset()
+		rw := &mockMessageReadWriter{output: []msg{
 			{'q', 0, 0, 0, 5, 1},
 		}}
-		_, err := a.authenticate()
+		ok, err := a.authenticate(rw, args)
 
-		require.EqualError(t, err,
-			"expected password response, got message type q")
+		require.False(t, ok)
+		require.True(t, bytes.Contains(rw.messages[0], passwordRequest))
+		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
+		require.NoError(t, err)
 	})
 }
 
@@ -165,20 +203,29 @@ func TestExtractPassword(t *testing.T) {
 type mockMessageReadWriter struct {
 	output        []msg
 	currentOutput int
+	messages      []msg
 }
 
 func (rw *mockMessageReadWriter) Read() (msg, error) {
 	return rw.output[rw.currentOutput%len(rw.output)], nil
 }
 
-func (rw *mockMessageReadWriter) Write(m msg) error { return nil }
+func (rw *mockMessageReadWriter) Write(m msg) error {
+	rw.messages = append(rw.messages, m)
+	return nil
+}
+
+func (rw *mockMessageReadWriter) Reset() {
+	rw.messages = make([]msg, 0)
+}
 
 // mockMD5MessageReadWriter implements messageReadWriter and outputs password
 // hashed with the salt received in Write() method
 type mockMD5MessageReadWriter struct {
-	user string
-	pass []byte
-	salt []byte
+	user     string
+	pass     []byte
+	salt     []byte
+	messages []msg
 }
 
 func (rw *mockMD5MessageReadWriter) Read() (msg, error) {
@@ -194,5 +241,10 @@ func (rw *mockMD5MessageReadWriter) Read() (msg, error) {
 
 func (rw *mockMD5MessageReadWriter) Write(m msg) error {
 	rw.salt = m[9:len(m)]
+	rw.messages = append(rw.messages, m)
 	return nil
+}
+
+func (rw *mockMD5MessageReadWriter) Reset() {
+	rw.messages = make([]msg, 0)
 }

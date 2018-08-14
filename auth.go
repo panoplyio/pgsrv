@@ -10,20 +10,30 @@ import (
 // authenticator interface defines objects able to perform user authentication
 // that happens at the very beginning of every session.
 type authenticator interface {
-	authenticate() (msg, error)
+	// authenticate accepts a msgReadWriter instance and a map of args that describe
+	// the current session. It returns true if the authentication succeeded,
+	// and the client was notified using the provided msgReadWriter object. It returns
+	// an error if something went wrong, even if the authentication was successful:
+	// e.g if it couldn't write a response into rw.
+	//
+	// Authentication errors as well as welcome messages are sent by this function,
+	// so there is no need for the caller to send these. It is caller's responsibility
+	// though to terminate the session in case that the first return value is false
+	// OR if the second returned value is not nil.
+	authenticate(rw msgReadWriter, args map[string]interface{}) (bool, error)
 }
 
 // noPasswordAuthenticator responds with auth OK immediately.
 type noPasswordAuthenticator struct{}
 
-func (*noPasswordAuthenticator) authenticate() (msg, error) {
-	return authOKMsg(), nil
+func (np *noPasswordAuthenticator) authenticate(rw msgReadWriter, args map[string]interface{}) (bool, error) {
+	return true, rw.Write(authOKMsg())
 }
 
 // messageReadWriter describes objects that handle client-server communication.
 // Objects implementing this interface are used to send password requests to users,
 // and receive their responses.
-type messageReadWriter interface {
+type msgReadWriter interface {
 	Write(m msg) error
 	Read() (msg, error)
 }
@@ -58,16 +68,12 @@ func (cpp *md5ConstantPasswordProvider) getPassword(user string) ([]byte, error)
 // clearTextAuthenticator requests and accepts a clear text password.
 // It is not recommended to use it for security reasons.
 //
-// It requires a messageReadWriter implementation to communicate with the client,
-// passwordProvider implementation to verify that the provided password is correct,
-// and a map of arguments that were sent at the beginning of the session (user, database, etc)
+// It requires a passwordProvider implementation to verify that the provided password is correct.
 type clearTextAuthenticator struct {
-	rw   messageReadWriter
-	args map[string]interface{}
-	pp   passwordProvider
+	pp passwordProvider
 }
 
-func (a *clearTextAuthenticator) authenticate() (msg, error) {
+func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]interface{}) (bool, error) {
 	// AuthenticationClearText
 	passwordRequest := msg{
 		'R',
@@ -75,45 +81,43 @@ func (a *clearTextAuthenticator) authenticate() (msg, error) {
 		0, 0, 0, 3, // clear text auth type
 	}
 
-	err := a.rw.Write(passwordRequest)
+	err := rw.Write(passwordRequest)
 	if err != nil {
-		return msg{}, err
+		return false, err
 	}
 
-	m, err := a.rw.Read()
+	m, err := rw.Read()
 	if err != nil {
-		return msg{}, err
+		return false, err
 	}
 
 	if m.Type() != 'p' {
-		return msg{},
-			fmt.Errorf("expected password response, got message type %c", m.Type())
+		err = fmt.Errorf("expected password response, got message type %c", m.Type())
+		m := errMsg(WithSeverity(fromErr(err), FATAL))
+		return false, rw.Write(m)
 	}
 
-	user := a.args["user"].(string)
+	user := args["user"].(string)
 	expectedPassword, err := a.pp.getPassword(user)
 	actualPassword := extractPassword(m)
 
 	if !bytes.Equal(expectedPassword, actualPassword) {
-		return msg{},
-			fmt.Errorf("Password does not match for user \"%s\"", user)
+		err = fmt.Errorf("Password does not match for user \"%s\"", user)
+		m := errMsg(WithSeverity(fromErr(err), FATAL))
+		return false, rw.Write(m)
 	}
 
-	return authOKMsg(), nil
+	return true, rw.Write(authOKMsg())
 }
 
 // md5Authenticator requests and accepts an MD5 hashed password from the client.
 //
-// It requires a messageReadWriter implementation to communicate with the client,
-// passwordProvider implementation to verify that the provided password is correct,
-// and a map of arguments that were sent at the beginning of the session (user, database, etc)
+// It requires a passwordProvider implementation to verify that the provided password is correct.
 type md5Authenticator struct {
-	rw   messageReadWriter
-	args map[string]interface{}
-	pp   passwordProvider
+	pp passwordProvider
 }
 
-func (a *md5Authenticator) authenticate() (msg, error) {
+func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interface{}) (bool, error) {
 	// AuthenticationMD5Password
 	passwordRequest := msg{
 		'R',
@@ -123,33 +127,35 @@ func (a *md5Authenticator) authenticate() (msg, error) {
 	salt := getRandomSalt()
 	passwordRequest = append(passwordRequest, salt...)
 
-	err := a.rw.Write(passwordRequest)
+	err := rw.Write(passwordRequest)
 	if err != nil {
-		return msg{}, err
+		return false, err
 	}
 
-	m, err := a.rw.Read()
+	m, err := rw.Read()
 	if err != nil {
-		return msg{}, err
+		return false, err
 	}
 
 	if m.Type() != 'p' {
-		return msg{},
-			fmt.Errorf("expected password response, got message type %c", m.Type())
+		err = fmt.Errorf("expected password response, got message type %c", m.Type())
+		m := errMsg(WithSeverity(fromErr(err), FATAL))
+		return false, rw.Write(m)
 	}
 
-	user := a.args["user"].(string)
+	user := args["user"].(string)
 	storedHash, err := a.pp.getPassword(user)
 	expectedHash := hashWithSalt(storedHash, salt)
 
 	actualHash := extractPassword(m)
 
 	if !bytes.Equal(expectedHash, actualHash) {
-		return msg{},
-			fmt.Errorf("Password does not match for user \"%s\"", user)
+		err = fmt.Errorf("Password does not match for user \"%s\"", user)
+		m := errMsg(WithSeverity(fromErr(err), FATAL))
+		return false, rw.Write(m)
 	}
 
-	return authOKMsg(), nil
+	return true, rw.Write(authOKMsg())
 }
 
 // authOKMsg returns a message that indicates that the client is now authenticated.

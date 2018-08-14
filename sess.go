@@ -97,14 +97,13 @@ func (s *session) Serve() error {
 	// handle authentication.
 	// TODO: replace with an actual pre-configured authenticator
 	a := &noPasswordAuthenticator{}
-	authResponse, err := a.authenticate()
-	if err != nil {
-		return s.Write(errMsg(WithSeverity(err, "FATAL")))
-	}
-
-	err = s.Write(authResponse)
+	ok, err := a.authenticate(s, s.Args)
 	if err != nil {
 		return err
+	}
+
+	if !ok {
+		return fmt.Errorf("authentication failed")
 	}
 
 	// generate cancellation pid and secret for this session
