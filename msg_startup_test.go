@@ -11,7 +11,7 @@ func TestStartupVersion(t *testing.T) {
 		m := &msg{'p', 0, 0, 0, 5}
 		_, err := m.StartupVersion()
 
-		require.Error(t, err)
+		require.EqualError(t, err, "Not an untyped startup message: 'p'")
 	})
 
 	t.Run("untyped message", func(t *testing.T) {
@@ -31,7 +31,7 @@ func TestStartupArgs(t *testing.T) {
 		m := &msg{'p', 0, 0, 0, 5}
 		_, err := m.StartupArgs()
 
-		require.Error(t, err)
+		require.EqualError(t, err, "Not an untyped startup message: 'p'")
 	})
 
 	t.Run("untyped message", func(t *testing.T) {
@@ -159,7 +159,7 @@ func TestCancelKeyData(t *testing.T) {
 		m := &msg{1, 2, 3, 4, 5, 6, 7, 8}
 		_, _, err := m.CancelKeyData()
 
-		require.Error(t, err)
+		require.EqualError(t, err, "Not a cancel message")
 	})
 
 	t.Run("cancel message", func(t *testing.T) {
