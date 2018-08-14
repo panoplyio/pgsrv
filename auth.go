@@ -71,8 +71,8 @@ func (a *clearTextAuthenticator) authenticate() (msg, error) {
 	// AuthenticationClearText
 	passwordRequest := msg{
 		'R',
-		0, 0, 0, 8,
-		0, 0, 0, 3,
+		0, 0, 0, 8, // length
+		0, 0, 0, 3, // clear text auth type
 	}
 
 	err := a.rw.Write(passwordRequest)
@@ -117,8 +117,8 @@ func (a *md5Authenticator) authenticate() (msg, error) {
 	// AuthenticationMD5Password
 	passwordRequest := msg{
 		'R',
-		0, 0, 0, 12,
-		0, 0, 0, 5,
+		0, 0, 0, 12, // length
+		0, 0, 0, 5, // md5 auth type
 	}
 	salt := getRandomSalt()
 	passwordRequest = append(passwordRequest, salt...)
