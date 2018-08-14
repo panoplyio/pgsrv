@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-// Version returns the protocol version supported by the client. The version is
+// StartupVersion returns the protocol version supported by the client. The version is
 // encoded by two consequtive 2-byte integers, one for the major version, and
 // the other for the minor version. Currently version 3.0 is the only valid
 // version.
@@ -74,7 +74,7 @@ func (m msg) IsTerminate() bool {
 	return m.Type() == 'X'
 }
 
-// NewTLSResponse creates a new single byte message indicating if the server
+// tlsResponseMsg creates a new single byte message indicating if the server
 // supports TLS or not. If it does, the client must immediately proceed to
 // initiate the TLS handshake
 func tlsResponseMsg(supported bool) msg {
@@ -82,7 +82,7 @@ func tlsResponseMsg(supported bool) msg {
 	return msg([]byte{b})
 }
 
-// NewAuthOK creates a new message indicating that the authentication was
+// authOKMsg creates a new message indicating that the authentication was
 // successful
 func authOKMsg() msg {
 	return []byte{'R', 0, 0, 0, 8, 0, 0, 0, 0}
