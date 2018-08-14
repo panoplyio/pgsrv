@@ -13,10 +13,10 @@ type authenticator interface {
 	authenticate() (msg, error)
 }
 
-// authenticationNoPassword responds with auth OK immediately.
-type authenticationNoPassword struct{}
+// noPasswordAuthenticator responds with auth OK immediately.
+type noPasswordAuthenticator struct{}
 
-func (*authenticationNoPassword) authenticate() (msg, error) {
+func (*noPasswordAuthenticator) authenticate() (msg, error) {
 	return authOKMsg(), nil
 }
 
@@ -55,19 +55,19 @@ func (cpp *md5ConstantPasswordProvider) getPassword(user string) ([]byte, error)
 	return puHash[:], nil
 }
 
-// authenticationClearText is an authenticator that requests and accepts a clear text password
-// from the client. It is not recommended to use it for security reasons.
+// clearTextAuthenticator requests and accepts a clear text password.
+// It is not recommended to use it for security reasons.
 //
 // It requires a messageReadWriter implementation to communicate with the client,
 // passwordProvider implementation to verify that the provided password is correct,
 // and a map of arguments that were sent at the beginning of the session (user, database, etc)
-type authenticationClearText struct {
+type clearTextAuthenticator struct {
 	rw   messageReadWriter
 	args map[string]interface{}
 	pp   passwordProvider
 }
 
-func (a *authenticationClearText) authenticate() (msg, error) {
+func (a *clearTextAuthenticator) authenticate() (msg, error) {
 	// AuthenticationClearText
 	passwordRequest := msg{
 		'R',
@@ -102,19 +102,18 @@ func (a *authenticationClearText) authenticate() (msg, error) {
 	return authOKMsg(), nil
 }
 
-// authenticationMD5 is an authenticator that requests and accepts an MD5 hashed password
-// from the client.
+// md5Authenticator requests and accepts an MD5 hashed password from the client.
 //
 // It requires a messageReadWriter implementation to communicate with the client,
 // passwordProvider implementation to verify that the provided password is correct,
 // and a map of arguments that were sent at the beginning of the session (user, database, etc)
-type authenticationMD5 struct {
+type md5Authenticator struct {
 	rw   messageReadWriter
 	args map[string]interface{}
 	pp   passwordProvider
 }
 
-func (a *authenticationMD5) authenticate() (msg, error) {
+func (a *md5Authenticator) authenticate() (msg, error) {
 	// AuthenticationMD5Password
 	passwordRequest := msg{
 		'R',

@@ -16,7 +16,7 @@ func TestAuthOKMsg(t *testing.T) {
 }
 
 func TestNoPassword_authenticate(t *testing.T) {
-	np := &authenticationNoPassword{}
+	np := &noPasswordAuthenticator{}
 	actualResult, err := np.authenticate()
 	expectedResult := authOKMessage
 
@@ -36,7 +36,7 @@ func TestAuthenticationClearText_authenticate(t *testing.T) {
 	}
 	pp := &constantPasswordProvider{password: []byte("meh")}
 
-	a := &authenticationClearText{rw, args, pp}
+	a := &clearTextAuthenticator{rw, args, pp}
 
 	t.Run("valid password", func(t *testing.T) {
 		expectedResult := authOKMessage
@@ -76,7 +76,7 @@ func TestAuthenticationMD5_authenticate(t *testing.T) {
 	}
 	pp := &md5ConstantPasswordProvider{password: []byte("test")}
 
-	a := &authenticationMD5{rw, args, pp}
+	a := &md5Authenticator{rw, args, pp}
 
 	t.Run("valid password", func(t *testing.T) {
 		expectedResult := authOKMessage
