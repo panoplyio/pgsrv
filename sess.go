@@ -95,6 +95,7 @@ func (s *session) Serve() error {
 	s.initialized = true
 
 	// handle authentication.
+	// TODO: replace with an actual pre-configured authenticator
 	a := &authenticationNoPassword{}
 	authResponse, err := a.authenticate()
 	if err != nil {
