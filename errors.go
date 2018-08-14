@@ -137,6 +137,14 @@ func fromErr(e error) *err {
 		return err1
 	}
 
+	severitier, ok := e.(interface {
+		Severity() string
+	})
+	s := ""
+	if ok {
+		s = severitier.Severity()
+	}
+
 	coder, ok := e.(interface {
 		Code() string
 	})
@@ -171,5 +179,5 @@ func fromErr(e error) *err {
 		p = positioner.Position()
 	}
 
-	return &err{C: c, M: m, D: d, H: h, P: p}
+	return &err{S: s, C: c, M: m, D: d, H: h, P: p}
 }
