@@ -7,6 +7,9 @@ import (
 	"fmt"
 )
 
+const expectedPasswordMessage = "expected password response, got message type %c"
+const passwordDidNotMatch = "Password does not match for user \"%s\""
+
 // authenticator interface defines objects able to perform user authentication
 // that happens at the very beginning of every session.
 type authenticator interface {
@@ -92,7 +95,7 @@ func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]
 	}
 
 	if m.Type() != 'p' {
-		err = fmt.Errorf("expected password response, got message type %c", m.Type())
+		err = fmt.Errorf(expectedPasswordMessage, m.Type())
 		m := errMsg(WithSeverity(fromErr(err), FATAL))
 		return false, rw.Write(m)
 	}
@@ -102,7 +105,7 @@ func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]
 	actualPassword := extractPassword(m)
 
 	if !bytes.Equal(expectedPassword, actualPassword) {
-		err = fmt.Errorf("Password does not match for user \"%s\"", user)
+		err = fmt.Errorf(passwordDidNotMatch, user)
 		m := errMsg(WithSeverity(fromErr(err), FATAL))
 		return false, rw.Write(m)
 	}
@@ -138,7 +141,7 @@ func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interf
 	}
 
 	if m.Type() != 'p' {
-		err = fmt.Errorf("expected password response, got message type %c", m.Type())
+		err = fmt.Errorf(expectedPasswordMessage, m.Type())
 		m := errMsg(WithSeverity(fromErr(err), FATAL))
 		return false, rw.Write(m)
 	}
@@ -150,7 +153,7 @@ func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interf
 	actualHash := extractPassword(m)
 
 	if !bytes.Equal(expectedHash, actualHash) {
-		err = fmt.Errorf("Password does not match for user \"%s\"", user)
+		err = fmt.Errorf(passwordDidNotMatch, user)
 		m := errMsg(WithSeverity(fromErr(err), FATAL))
 		return false, rw.Write(m)
 	}
