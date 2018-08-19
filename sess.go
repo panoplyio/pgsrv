@@ -95,13 +95,9 @@ func (s *session) Serve() error {
 	s.initialized = true
 
 	// handle authentication.
-	ok, err := s.Server.authenticate(s, s.Args)
+	err = s.Server.authenticate(s, s.Args)
 	if err != nil {
 		return err
-	}
-
-	if !ok {
-		return fmt.Errorf("authentication failed")
 	}
 
 	// generate cancellation pid and secret for this session

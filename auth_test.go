@@ -26,9 +26,8 @@ func TestNoPassword_authenticate(t *testing.T) {
 	}
 
 	np := &noPasswordAuthenticator{}
-	ok, err := np.authenticate(rw, args)
+	err := np.authenticate(rw, args)
 
-	require.True(t, ok)
 	require.NoError(t, err)
 	require.Equal(t, []msg{authOKMessage}, rw.messages)
 }
@@ -54,9 +53,8 @@ func TestAuthenticationClearText_authenticate(t *testing.T) {
 
 	t.Run("valid password", func(t *testing.T) {
 		defer rw.Reset()
-		ok, err := a.authenticate(rw, args)
+		err := a.authenticate(rw, args)
 
-		require.True(t, ok)
 		require.NoError(t, err)
 		expectedMessages := []msg{
 			passwordRequest,
@@ -68,9 +66,8 @@ func TestAuthenticationClearText_authenticate(t *testing.T) {
 	t.Run("invalid password", func(t *testing.T) {
 		defer rw.Reset()
 		pp.password = []byte("shtoot")
-		ok, err := a.authenticate(rw, args)
+		err := a.authenticate(rw, args)
 
-		require.False(t, ok)
 		require.Equal(t, passwordRequest, rw.messages[0])
 		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
 		require.NoError(t, err)
@@ -81,9 +78,8 @@ func TestAuthenticationClearText_authenticate(t *testing.T) {
 		rw = &mockMessageReadWriter{output: []msg{
 			{'q', 0, 0, 0, 5, 1},
 		}}
-		ok, err := a.authenticate(rw, args)
+		err := a.authenticate(rw, args)
 
-		require.False(t, ok)
 		require.Equal(t, passwordRequest, rw.messages[0])
 		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
 		require.NoError(t, err)
@@ -110,9 +106,8 @@ func TestAuthenticationMD5_authenticate(t *testing.T) {
 
 	t.Run("valid password", func(t *testing.T) {
 		defer rw.Reset()
-		ok, err := a.authenticate(rw, args)
+		err := a.authenticate(rw, args)
 
-		require.True(t, ok)
 		require.NoError(t, err)
 		require.True(t, bytes.Contains(rw.messages[0], passwordRequest))
 		require.Equal(t, authOKMessage, rw.messages[1])
@@ -121,9 +116,8 @@ func TestAuthenticationMD5_authenticate(t *testing.T) {
 	t.Run("invalid password", func(t *testing.T) {
 		defer rw.Read()
 		pp.password = []byte("shtoot")
-		ok, err := a.authenticate(rw, args)
+		err := a.authenticate(rw, args)
 
-		require.False(t, ok)
 		require.True(t, bytes.Contains(rw.messages[0], passwordRequest))
 		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
 		require.NoError(t, err)
@@ -134,9 +128,8 @@ func TestAuthenticationMD5_authenticate(t *testing.T) {
 		rw := &mockMessageReadWriter{output: []msg{
 			{'q', 0, 0, 0, 5, 1},
 		}}
-		ok, err := a.authenticate(rw, args)
+		err := a.authenticate(rw, args)
 
-		require.False(t, ok)
 		require.True(t, bytes.Contains(rw.messages[0], passwordRequest))
 		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
 		require.NoError(t, err)

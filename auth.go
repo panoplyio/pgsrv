@@ -14,23 +14,20 @@ const errWrongPassword = "Password does not match for user \"%s\""
 // that happens at the very beginning of every session.
 type authenticator interface {
 	// authenticate accepts a msgReadWriter instance and a map of args that describe
-	// the current session. It returns true if the authentication succeeded,
-	// and the client was notified using the provided msgReadWriter object. It returns
-	// an error if something went wrong, even if the authentication was successful:
-	// e.g if it couldn't write a response into rw.
+	// the current session. It returns no error if the authentication succeeds,
+	// or an error if something fails.
 	//
 	// Authentication errors as well as welcome messages are sent by this function,
 	// so there is no need for the caller to send these. It is caller's responsibility
-	// though to terminate the session in case that the first return value is false
-	// OR if the second returned value is not nil.
-	authenticate(rw msgReadWriter, args map[string]interface{}) (bool, error)
+	// though to terminate the session in case that an error is returned.
+	authenticate(rw msgReadWriter, args map[string]interface{}) error
 }
 
 // noPasswordAuthenticator responds with auth OK immediately.
 type noPasswordAuthenticator struct{}
 
-func (np *noPasswordAuthenticator) authenticate(rw msgReadWriter, args map[string]interface{}) (bool, error) {
-	return true, rw.Write(authOKMsg())
+func (np *noPasswordAuthenticator) authenticate(rw msgReadWriter, args map[string]interface{}) error {
+	return rw.Write(authOKMsg())
 }
 
 // messageReadWriter describes objects that handle client-server communication.
@@ -76,7 +73,7 @@ type clearTextAuthenticator struct {
 	pp passwordProvider
 }
 
-func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]interface{}) (bool, error) {
+func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]interface{}) error {
 	// AuthenticationClearText
 	passwordRequest := msg{
 		'R',
@@ -86,18 +83,18 @@ func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]
 
 	err := rw.Write(passwordRequest)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	m, err := rw.Read()
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	if m.Type() != 'p' {
 		err = fmt.Errorf(errExpectedPassword, m.Type())
 		m := errMsg(WithSeverity(fromErr(err), fatalSeverity))
-		return false, rw.Write(m)
+		return rw.Write(m)
 	}
 
 	user := args["user"].(string)
@@ -107,10 +104,10 @@ func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]
 	if !bytes.Equal(expectedPassword, actualPassword) {
 		err = fmt.Errorf(errWrongPassword, user)
 		m := errMsg(WithSeverity(fromErr(err), fatalSeverity))
-		return false, rw.Write(m)
+		return rw.Write(m)
 	}
 
-	return true, rw.Write(authOKMsg())
+	return rw.Write(authOKMsg())
 }
 
 // md5Authenticator requests and accepts an MD5 hashed password from the client.
@@ -120,7 +117,7 @@ type md5Authenticator struct {
 	pp passwordProvider
 }
 
-func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interface{}) (bool, error) {
+func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interface{}) error {
 	// AuthenticationMD5Password
 	passwordRequest := msg{
 		'R',
@@ -132,18 +129,18 @@ func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interf
 
 	err := rw.Write(passwordRequest)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	m, err := rw.Read()
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	if m.Type() != 'p' {
 		err = fmt.Errorf(errExpectedPassword, m.Type())
 		m := errMsg(WithSeverity(fromErr(err), fatalSeverity))
-		return false, rw.Write(m)
+		return rw.Write(m)
 	}
 
 	user := args["user"].(string)
@@ -155,10 +152,10 @@ func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interf
 	if !bytes.Equal(expectedHash, actualHash) {
 		err = fmt.Errorf(errWrongPassword, user)
 		m := errMsg(WithSeverity(fromErr(err), fatalSeverity))
-		return false, rw.Write(m)
+		return rw.Write(m)
 	}
 
-	return true, rw.Write(authOKMsg())
+	return rw.Write(authOKMsg())
 }
 
 // authOKMsg returns a message that indicates that the client is now authenticated.
