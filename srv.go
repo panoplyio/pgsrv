@@ -9,7 +9,8 @@ import (
 
 // implements the Server interface
 type server struct {
-	queryer Queryer
+	queryer       Queryer
+	authenticator authenticator
 }
 
 // New creates a Server object capable of handling postgres client connections.
@@ -17,7 +18,7 @@ type server struct {
 // also implements Execer, the returned server will also be able to handle
 // executing SQL commands (see Execer).
 func New(queryer Queryer) Server {
-	return &server{queryer}
+	return &server{queryer, &noPasswordAuthenticator{}}
 }
 
 // implements Queryer
@@ -60,4 +61,8 @@ func (s *server) Serve(conn net.Conn) error {
 		// TODO: Log it?
 	}
 	return err
+}
+
+func (s *server) authenticate(sess *session, args map[string]interface{}) (bool, error) {
+	return s.authenticator.authenticate(sess, args)
 }
