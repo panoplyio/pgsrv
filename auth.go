@@ -96,7 +96,7 @@ func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]
 
 	if m.Type() != 'p' {
 		err = fmt.Errorf(errExpectedPassword, m.Type())
-		m := errMsg(WithSeverity(fromErr(err), FATAL))
+		m := errMsg(WithSeverity(fromErr(err), fatalSeverity))
 		return false, rw.Write(m)
 	}
 
@@ -106,7 +106,7 @@ func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]
 
 	if !bytes.Equal(expectedPassword, actualPassword) {
 		err = fmt.Errorf(errWrongPassword, user)
-		m := errMsg(WithSeverity(fromErr(err), FATAL))
+		m := errMsg(WithSeverity(fromErr(err), fatalSeverity))
 		return false, rw.Write(m)
 	}
 
@@ -142,7 +142,7 @@ func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interf
 
 	if m.Type() != 'p' {
 		err = fmt.Errorf(errExpectedPassword, m.Type())
-		m := errMsg(WithSeverity(fromErr(err), FATAL))
+		m := errMsg(WithSeverity(fromErr(err), fatalSeverity))
 		return false, rw.Write(m)
 	}
 
@@ -154,7 +154,7 @@ func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interf
 
 	if !bytes.Equal(expectedHash, actualHash) {
 		err = fmt.Errorf(errWrongPassword, user)
-		m := errMsg(WithSeverity(fromErr(err), FATAL))
+		m := errMsg(WithSeverity(fromErr(err), fatalSeverity))
 		return false, rw.Write(m)
 	}
 
