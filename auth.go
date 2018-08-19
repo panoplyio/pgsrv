@@ -7,8 +7,8 @@ import (
 	"fmt"
 )
 
-const expectedPasswordMessage = "expected password response, got message type %c"
-const passwordDidNotMatch = "Password does not match for user \"%s\""
+const errExpectedPassword = "expected password response, got message type %c"
+const errWrongPassword = "Password does not match for user \"%s\""
 
 // authenticator interface defines objects able to perform user authentication
 // that happens at the very beginning of every session.
@@ -95,7 +95,7 @@ func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]
 	}
 
 	if m.Type() != 'p' {
-		err = fmt.Errorf(expectedPasswordMessage, m.Type())
+		err = fmt.Errorf(errExpectedPassword, m.Type())
 		m := errMsg(WithSeverity(fromErr(err), FATAL))
 		return false, rw.Write(m)
 	}
@@ -105,7 +105,7 @@ func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]
 	actualPassword := extractPassword(m)
 
 	if !bytes.Equal(expectedPassword, actualPassword) {
-		err = fmt.Errorf(passwordDidNotMatch, user)
+		err = fmt.Errorf(errWrongPassword, user)
 		m := errMsg(WithSeverity(fromErr(err), FATAL))
 		return false, rw.Write(m)
 	}
@@ -141,7 +141,7 @@ func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interf
 	}
 
 	if m.Type() != 'p' {
-		err = fmt.Errorf(expectedPasswordMessage, m.Type())
+		err = fmt.Errorf(errExpectedPassword, m.Type())
 		m := errMsg(WithSeverity(fromErr(err), FATAL))
 		return false, rw.Write(m)
 	}
@@ -153,7 +153,7 @@ func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interf
 	actualHash := extractPassword(m)
 
 	if !bytes.Equal(expectedHash, actualHash) {
-		err = fmt.Errorf(passwordDidNotMatch, user)
+		err = fmt.Errorf(errWrongPassword, user)
 		m := errMsg(WithSeverity(fromErr(err), FATAL))
 		return false, rw.Write(m)
 	}
