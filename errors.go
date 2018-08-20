@@ -4,6 +4,9 @@ import (
 	"fmt"
 )
 
+// fatalSeverity error terminates session
+const fatalSeverity = "FATAL"
+
 // Err is a postgres-compatible error object. It's not required to be used, as
 // any other normal error object would be converted to a generic internal error,
 // but it provides the API to generate user-friendly error messages. Note that
@@ -26,6 +29,7 @@ import (
 type Err error
 
 type err struct {
+	S string // Severity
 	C string // Code
 	M string // Message
 	D string // Detail
@@ -33,11 +37,23 @@ type err struct {
 	P int    // Position
 }
 
-func (e *err) Code() string   { return e.C }
-func (e *err) Error() string  { return e.M }
-func (e *err) Detail() string { return e.D }
-func (e *err) Hint() string   { return e.H }
-func (e *err) Position() int  { return e.P }
+func (e *err) Severity() string { return e.S }
+func (e *err) Code() string     { return e.C }
+func (e *err) Error() string    { return e.M }
+func (e *err) Detail() string   { return e.D }
+func (e *err) Hint() string     { return e.H }
+func (e *err) Position() int    { return e.P }
+
+// WithSeverity decorates an error object to also include an optional severity
+func WithSeverity(err error, severity string) Err {
+	if err == nil {
+		return nil
+	}
+
+	e := fromErr(err)
+	e.S = severity
+	return e
+}
 
 // WithDetail decorates an error object to also include  an optional secondary
 // error message carrying more detail about the problem. Might run to multiple
@@ -124,6 +140,14 @@ func fromErr(e error) *err {
 		return err1
 	}
 
+	severitier, ok := e.(interface {
+		Severity() string
+	})
+	s := ""
+	if ok {
+		s = severitier.Severity()
+	}
+
 	coder, ok := e.(interface {
 		Code() string
 	})
@@ -158,5 +182,5 @@ func fromErr(e error) *err {
 		p = positioner.Position()
 	}
 
-	return &err{C: c, M: m, D: d, H: h, P: p}
+	return &err{S: s, C: c, M: m, D: d, H: h, P: p}
 }

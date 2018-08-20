@@ -92,8 +92,10 @@ func (s *session) Serve() error {
 		return err
 	}
 
+	s.initialized = true
+
 	// handle authentication.
-	err = s.Write(authOKMsg())
+	err = s.Server.authenticate(s, s.Args)
 	if err != nil {
 		return err
 	}
@@ -118,7 +120,6 @@ func (s *session) Serve() error {
 	}
 
 	// query-cycle
-	s.initialized = true
 	for {
 		// notify the client that we're ready for more messages.
 		err = s.Write(readyMsg())

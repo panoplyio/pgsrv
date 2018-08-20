@@ -123,12 +123,6 @@ func TestTlsResponseMsg(t *testing.T) {
 	})
 }
 
-func TestAuthOKMsg(t *testing.T) {
-	m := authOKMsg()
-
-	require.Equal(t, msg{'R', 0, 0, 0, 8, 0, 0, 0, 0}, m)
-}
-
 func TestKeyDataMsg(t *testing.T) {
 	m := keyDataMsg(1325119140, 942490198)
 	expectedMessage := msg{75, 0, 0, 0, 12, 78, 251, 182, 164, 56, 45, 66, 86}

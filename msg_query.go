@@ -106,6 +106,14 @@ func errMsg(err error) msg {
 		"M": err.Error(),
 	}
 
+	// severity
+	errSeverity, ok := err.(interface {
+		Severity() string
+	})
+	if ok && errSeverity.Severity() != "" {
+		fields["S"] = errSeverity.Severity()
+	}
+
 	// error code
 	errCode, ok := err.(interface {
 		Code() string
