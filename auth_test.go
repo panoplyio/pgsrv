@@ -70,7 +70,7 @@ func TestAuthenticationClearText_authenticate(t *testing.T) {
 
 		require.Equal(t, passwordRequest, rw.messages[0])
 		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
-		require.NoError(t, err)
+		require.EqualError(t, err, "Password does not match for user \"this-is-user\"")
 	})
 
 	t.Run("invalid message type", func(t *testing.T) {
@@ -82,7 +82,7 @@ func TestAuthenticationClearText_authenticate(t *testing.T) {
 
 		require.Equal(t, passwordRequest, rw.messages[0])
 		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
-		require.NoError(t, err)
+		require.EqualError(t, err, "expected password response, got message type q")
 	})
 }
 
@@ -120,7 +120,7 @@ func TestAuthenticationMD5_authenticate(t *testing.T) {
 
 		require.True(t, bytes.Contains(rw.messages[0], passwordRequest))
 		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
-		require.NoError(t, err)
+		require.EqualError(t, err, "Password does not match for user \"postgres\"")
 	})
 
 	t.Run("invalid message type", func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestAuthenticationMD5_authenticate(t *testing.T) {
 
 		require.True(t, bytes.Contains(rw.messages[0], passwordRequest))
 		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
-		require.NoError(t, err)
+		require.EqualError(t, err, "expected password response, got message type q")
 	})
 }
 
