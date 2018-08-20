@@ -18,6 +18,7 @@ type server struct {
 // also implements Execer, the returned server will also be able to handle
 // executing SQL commands (see Execer).
 func New(queryer Queryer) Server {
+	// TODO replace with an actual pre-configured authenticator
 	return &server{queryer, &noPasswordAuthenticator{}}
 }
 
