@@ -17,6 +17,7 @@ type query struct {
 
 // Run the query using the Server's defined queryer
 func (q *query) Run() error {
+
 	// parse the query
 	ast, err := parser.Parse(q.sql)
 	if err != nil {
@@ -133,14 +134,26 @@ type tagger struct {
 	Node nodes.Node
 }
 
-func (res *tagger) Tag() (string, error) {
+func (res *tagger) Tag() (tag string, err error) {
 	affected, err := res.RowsAffected()
 	if err != nil {
 		return "", err
 	}
 
-	var tag string
 	switch res.Node.(type) {
+	// VariableSetStmt can return SET or RESET depend on it's kind
+	case nodes.VariableSetStmt:
+		kind := res.Node.(nodes.VariableSetStmt).Kind
+		switch kind {
+		case nodes.VAR_SET_VALUE, nodes.VAR_SET_CURRENT, nodes.VAR_SET_DEFAULT, nodes.VAR_SET_MULTI:
+			tag = "SET"
+		case nodes.VAR_RESET, nodes.VAR_RESET_ALL:
+			tag = "RESET"
+		default:
+			tag = "???"
+		}
+		// VariableSetStmt result tag does not specify number of rows affected
+		return
 	// oid in INSERT is not implemented; defaults to 0
 	case nodes.InsertStmt:
 		tag = "INSERT 0"
@@ -157,5 +170,6 @@ func (res *tagger) Tag() (string, error) {
 	default:
 		tag = "UPDATE"
 	}
+
 	return fmt.Sprintf("%s %d", tag, affected), nil
 }
