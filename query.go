@@ -17,7 +17,6 @@ type query struct {
 
 // Run the query using the Server's defined queryer
 func (q *query) Run() error {
-
 	// parse the query
 	ast, err := parser.Parse(q.sql)
 	if err != nil {
@@ -137,7 +136,7 @@ type tagger struct {
 func (res *tagger) Tag() (tag string, err error) {
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return "", err
+		return
 	}
 
 	switch res.Node.(type) {
