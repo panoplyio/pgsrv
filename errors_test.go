@@ -28,6 +28,62 @@ func TestFromErr(t *testing.T) {
 	})
 }
 
+func TestWithSeverity(t *testing.T) {
+	t.Run("error is nil", func(t *testing.T) {
+		err := WithSeverity(nil, "thing")
+		require.Nil(t, err)
+	})
+
+	t.Run("real error", func(t *testing.T) {
+		e := &mockErr{}
+		es := WithSeverity(e, "minor")
+		require.NotNil(t, es)
+		require.Equal(t, "minor", es.(*err).Severity())
+	})
+}
+
+func TestWithDetail(t *testing.T) {
+	t.Run("error is nil", func(t *testing.T) {
+		err := WithDetail(nil, "thing")
+		require.Nil(t, err)
+	})
+
+	t.Run("real error", func(t *testing.T) {
+		e := &mockErr{}
+		es := WithDetail(e, "some details")
+		require.NotNil(t, es)
+		require.Equal(t, "some details", es.(*err).Detail())
+	})
+}
+
+func TestWithHint(t *testing.T) {
+	t.Run("error is nil", func(t *testing.T) {
+		err := WithHint(nil, "this is a hint")
+		require.Nil(t, err)
+	})
+
+	t.Run("real error", func(t *testing.T) {
+		e := &mockErr{}
+		es := WithHint(e, "hint!")
+		require.NotNil(t, es)
+		require.Equal(t, "hint!", es.(*err).Hint())
+	})
+}
+
+func TestWithPosition(t *testing.T) {
+	t.Run("error is nil", func(t *testing.T) {
+		err := WithPosition(nil, 13)
+		require.Nil(t, err)
+	})
+
+	t.Run("real error", func(t *testing.T) {
+		e := fmt.Errorf("this is a regular error")
+		es := WithPosition(e, 13)
+		require.NotNil(t, es)
+		require.Equal(t, 13, es.(*err).Position())
+	})
+}
+
 type mockErr struct{}
 
 func (*mockErr) Severity() string { return "BAD" }
