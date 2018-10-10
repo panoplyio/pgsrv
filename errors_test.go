@@ -28,6 +28,34 @@ func TestFromErr(t *testing.T) {
 	})
 }
 
+func TestUnrecognized(t *testing.T) {
+	e := Unrecognized("thing %s", "meh").(*err)
+	require.Equal(t, "42000", e.Code())
+	require.Equal(t, -1, e.Position())
+	require.Equal(t, "unrecognized thing meh", e.Error())
+}
+
+func TestInvalid(t *testing.T) {
+	e := Invalid("thing %s", "meh").(*err)
+	require.Equal(t, "42000", e.Code())
+	require.Equal(t, -1, e.Position())
+	require.Equal(t, "invalid thing meh", e.Error())
+}
+
+func TestDisallowed(t *testing.T) {
+	e := Disallowed("thing %s", "meh").(*err)
+	require.Equal(t, "42000", e.Code())
+	require.Equal(t, -1, e.Position())
+	require.Equal(t, "disallowed thing meh", e.Error())
+}
+
+func TestUnsupported(t *testing.T) {
+	e := Unsupported("thing %s", "meh").(*err)
+	require.Equal(t, "0A000", e.Code())
+	require.Equal(t, -1, e.Position())
+	require.Equal(t, "unsupported thing meh", e.Error())
+}
+
 func TestWithSeverity(t *testing.T) {
 	t.Run("error is nil", func(t *testing.T) {
 		err := WithSeverity(nil, "thing")
