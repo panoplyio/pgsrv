@@ -50,6 +50,5 @@ func TestQueryText(t *testing.T) {
 		res, err := msg.QueryText()
 		require.NoError(t, err)
 		require.Equal(t, "", res)
-
 	})
 }
