@@ -5,11 +5,11 @@ branches:
     - master
 
 go:
-  - 1.10.x
+  - 1.11.x
 
 install:
-  - go get -u github.com/golang/lint/golint
   - go get -t -v ./...
+  - go get -u golang.org/x/lint/golint
   - export PATH=$PATH:$HOME/.local/bin
 
 script:
