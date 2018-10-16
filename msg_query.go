@@ -13,7 +13,6 @@ var TypesOid = map[string]int{
 	"INT8":       20,
 	"INT2":       21,
 	"INT4":       23,
-	"INT":        20,
 	"TEXT":       25,
 	"JSON":       114,
 	"XML":        142,
@@ -33,7 +32,7 @@ var TypesOid = map[string]int{
 // QueryText returns the SQL query string from a Query or Parse message
 func (m msg) QueryText() (string, error) {
 	if m.Type() != 'Q' {
-		return "", fmt.Errorf("Not a query message: %q", m.Type())
+		return "", fmt.Errorf("not a query message: %q", m.Type())
 	}
 
 	return string(m[5:]), nil

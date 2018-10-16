@@ -7,8 +7,8 @@ import (
 	"fmt"
 )
 
-const errExpectedPassword = "expected password response, got message type %c"
-const errWrongPassword = "Password does not match for user \"%s\""
+const errExpectedPassword = "expected password response, got message type %q"
+const errWrongPassword = "password does not match for user \"%s\""
 
 // authenticator interface defines objects able to perform user authentication
 // that happens at the very beginning of every session.

@@ -28,7 +28,7 @@ func TestQueryText(t *testing.T) {
 		msg := newMsg(bs)
 
 		res, err := msg.QueryText()
-		require.EqualError(t, err, "Not a query message: 'p'")
+		require.EqualError(t, err, "not a query message: 'p'")
 		require.Equal(t, "", res)
 	})
 

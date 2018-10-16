@@ -70,7 +70,7 @@ func TestAuthenticationClearText_authenticate(t *testing.T) {
 
 		require.Equal(t, passwordRequest, rw.messages[0])
 		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
-		require.EqualError(t, err, "Password does not match for user \"this-is-user\"")
+		require.EqualError(t, err, "password does not match for user \"this-is-user\"")
 	})
 
 	t.Run("invalid message type", func(t *testing.T) {
@@ -82,7 +82,7 @@ func TestAuthenticationClearText_authenticate(t *testing.T) {
 
 		require.Equal(t, passwordRequest, rw.messages[0])
 		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
-		require.EqualError(t, err, "expected password response, got message type q")
+		require.EqualError(t, err, "expected password response, got message type 'q'")
 	})
 }
 
@@ -120,7 +120,7 @@ func TestAuthenticationMD5_authenticate(t *testing.T) {
 
 		require.True(t, bytes.Contains(rw.messages[0], passwordRequest))
 		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
-		require.EqualError(t, err, "Password does not match for user \"postgres\"")
+		require.EqualError(t, err, "password does not match for user \"postgres\"")
 	})
 
 	t.Run("invalid message type", func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestAuthenticationMD5_authenticate(t *testing.T) {
 
 		require.True(t, bytes.Contains(rw.messages[0], passwordRequest))
 		require.True(t, bytes.Contains(rw.messages[1], fatalMarker))
-		require.EqualError(t, err, "expected password response, got message type q")
+		require.EqualError(t, err, "expected password response, got message type 'q'")
 	})
 }
 
@@ -233,7 +233,7 @@ func (rw *mockMD5MessageReadWriter) Read() (msg, error) {
 }
 
 func (rw *mockMD5MessageReadWriter) Write(m msg) error {
-	rw.salt = m[9:len(m)]
+	rw.salt = m[9:]
 	rw.messages = append(rw.messages, m)
 	return nil
 }
