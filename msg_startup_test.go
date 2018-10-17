@@ -176,3 +176,15 @@ func TestCancelKeyData(t *testing.T) {
 		require.Equal(t, int32(expectedSecret), secret)
 	})
 }
+
+func TestParameterStatus(t *testing.T) {
+	m := parameterStatusMsg("client_encoding", "utf8")
+	expectedMessage := msg{
+		'S',
+		0, 0, 0, 25,
+		'c', 'l', 'i', 'e', 'n', 't', '_', 'e', 'n', 'c', 'o', 'd', 'i', 'n', 'g', 0,
+		'u', 't', 'f', '8', 0,
+	}
+
+	require.Equal(t, expectedMessage, m)
+}
