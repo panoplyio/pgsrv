@@ -108,7 +108,7 @@ func (m msg) CancelKeyData() (int32, int32, error) {
 
 // parameterStatusMsg creates a new message providing parameter name and value
 func parameterStatusMsg(name, value string) msg {
-	length := /* LEN */ 5 + len(name) + len(value) + /* TERMINATOR */ 2
+	length := /* TYPE+LEN */ 5 + len(name) + len(value) + /* TERMINATORS */ 2
 	msg := make([]byte, length)
 	msg[0] = 'S'
 	copy(msg[5:], name)
