@@ -82,7 +82,7 @@ func tlsResponseMsg(supported bool) msg {
 	return msg([]byte{b})
 }
 
-// KeyDataMsg creates a new message providing the client with a process ID and
+// keyDataMsg creates a new message providing the client with a process ID and
 // secret key that it can later use to cancel running queries
 func keyDataMsg(pid int32, secret int32) msg {
 	msg := []byte{'K', 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -104,4 +104,17 @@ func (m msg) CancelKeyData() (int32, int32, error) {
 	pid := int32(binary.BigEndian.Uint32(m[8:12]))
 	secret := int32(binary.BigEndian.Uint32(m[12:16]))
 	return pid, secret, nil
+}
+
+// parameterStatusMsg creates a new message providing parameter name and value
+func parameterStatusMsg(name, value string) msg {
+	length := /* LEN */ 5 + len(name) + len(value) + /* TERMINATOR */ 2
+	msg := make([]byte, length)
+	msg[0] = 'S'
+	copy(msg[5:], name)
+	copy(msg[length-len(value)-1:], value)
+
+	// write the length
+	binary.BigEndian.PutUint32(msg[1:5], uint32(length-1))
+	return msg
 }

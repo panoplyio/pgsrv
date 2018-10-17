@@ -100,6 +100,11 @@ func (s *session) Serve() error {
 		return err
 	}
 
+	err = s.Write(parameterStatusMsg("client_encoding", "utf8"))
+	if err != nil {
+		return err
+	}
+
 	// generate cancellation pid and secret for this session
 	s.Secret = rand.Int31()
 
