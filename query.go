@@ -134,11 +134,6 @@ type tagger struct {
 }
 
 func (res *tagger) Tag() (tag string, err error) {
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return
-	}
-
 	switch res.Node.(type) {
 	// VariableSetStmt can return SET or RESET depend on it's kind
 	case nodes.VariableSetStmt:
@@ -170,5 +165,9 @@ func (res *tagger) Tag() (tag string, err error) {
 		tag = "UPDATE"
 	}
 
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return tag, err
+	}
 	return fmt.Sprintf("%s %d", tag, affected), nil
 }

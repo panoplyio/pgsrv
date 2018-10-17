@@ -84,7 +84,7 @@ func (s *session) Serve() error {
 	}
 
 	if v != "3.0" {
-		return fmt.Errorf("Unsupported protocol version %s", v)
+		return fmt.Errorf("unsupported protocol version %s", v)
 	}
 
 	s.Args, err = msg.StartupArgs()
@@ -94,7 +94,7 @@ func (s *session) Serve() error {
 
 	s.initialized = true
 
-	// handle authentication.
+	// handle authentication
 	err = s.Server.authenticate(s, s.Args)
 	if err != nil {
 		return err
@@ -121,7 +121,7 @@ func (s *session) Serve() error {
 
 	// query-cycle
 	for {
-		// notify the client that we're ready for more messages.
+		// notify the client that we're ready for more messages
 		err = s.Write(readyMsg())
 		if err != nil {
 			return err
@@ -168,12 +168,12 @@ func (s *session) Serve() error {
 // This method abstracts away this differentiation, returning the next available
 // message whether it's typed or not.
 func (s *session) Read() (msg, error) {
-	typechar := make([]byte, 1)
+	typeChar := make([]byte, 1)
 	if s.initialized {
 
 		// we've already started up, so all future messages are MUST start with
 		// a single-byte type identifier.
-		_, err := s.Conn.Read(typechar)
+		_, err := s.Conn.Read(typeChar)
 		if err != nil {
 			return nil, err
 		}
@@ -185,7 +185,7 @@ func (s *session) Read() (msg, error) {
 		return nil, err
 	}
 
-	if typechar[0] != 0 {
+	if typeChar[0] != 0 {
 
 		// we have a typed-message, prepend it to the message body by first
 		// creating a new message that's 1-byte longer than the body in order to
@@ -194,7 +194,7 @@ func (s *session) Read() (msg, error) {
 		msg = make([]byte, len(body)+1)
 
 		// fixing the type byte at the beginning (position 0) of the new message
-		msg[0] = typechar[0]
+		msg[0] = typeChar[0]
 
 		// finally append the body to the new message, starting from position 1
 		copy(msg[1:], body)
@@ -210,14 +210,14 @@ func (s *session) readBody() ([]byte, error) {
 
 	// messages starts with an Int32 Length of message contents in bytes,
 	// including self.
-	lenbytes := make([]byte, 4)
-	_, err := io.ReadFull(s.Conn, lenbytes)
+	lenBytes := make([]byte, 4)
+	_, err := io.ReadFull(s.Conn, lenBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	// convert the 4-bytes to int
-	length := int(binary.BigEndian.Uint32(lenbytes))
+	length := int(binary.BigEndian.Uint32(lenBytes))
 
 	// read the remaining bytes in the message
 	msg := make([]byte, length)
@@ -228,7 +228,7 @@ func (s *session) readBody() ([]byte, error) {
 
 	// append the message content to the length bytes in order to rebuild the
 	// original message in its entirety
-	copy(msg[:4], lenbytes)
+	copy(msg[:4], lenBytes)
 	return msg, nil
 }
 

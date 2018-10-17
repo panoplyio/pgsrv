@@ -7,12 +7,12 @@ import (
 )
 
 // StartupVersion returns the protocol version supported by the client. The version is
-// encoded by two consequtive 2-byte integers, one for the major version, and
+// encoded by two consecutive 2-byte integers, one for the major version, and
 // the other for the minor version. Currently version 3.0 is the only valid
 // version.
 func (m msg) StartupVersion() (string, error) {
 	if m.Type() != 0 {
-		return "", fmt.Errorf("Not an untyped startup message: %q", m.Type())
+		return "", fmt.Errorf("expected untyped startup message, got: %q", m.Type())
 	}
 
 	major := int(binary.BigEndian.Uint16(m[4:6]))
@@ -27,13 +27,13 @@ func (m msg) StartupVersion() (string, error) {
 // of key-values, terminated by a NULL character.
 func (m msg) StartupArgs() (map[string]interface{}, error) {
 	if m.Type() != 0 {
-		return nil, fmt.Errorf("Not an untyped startup message: %q", m.Type())
+		return nil, fmt.Errorf("expected untyped startup message, got: %q", m.Type())
 	}
 
 	buff := m[8:] // skip the length (4-bytes) and version (4-bytes)
 
 	// first create a single long list of strings, combining both keys and
-	// values alternatingly
+	// values alternately
 	var strings []string
 	for len(buff) > 0 {
 
@@ -98,7 +98,7 @@ func (m msg) IsCancel() bool {
 
 func (m msg) CancelKeyData() (int32, int32, error) {
 	if !m.IsCancel() {
-		return -1, -1, fmt.Errorf("Not a cancel message")
+		return -1, -1, fmt.Errorf("not a cancel message")
 	}
 
 	pid := int32(binary.BigEndian.Uint32(m[8:12]))
