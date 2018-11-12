@@ -17,9 +17,17 @@ type server struct {
 // It delegates query execution to the provided Queryer. If the provided Queryer
 // also implements Execer, the returned server will also be able to handle
 // executing SQL commands (see Execer).
+//
+// If queryer implements passwordProvider interface, a new server will be protected
+// with a new md5Authenticator.
 func New(queryer Queryer) Server {
-	// TODO replace with an actual pre-configured authenticator
-	return &server{queryer, &noPasswordAuthenticator{}}
+	var auth authenticator
+	auth = &noPasswordAuthenticator{}
+	pp, ok := queryer.(passwordProvider)
+	if ok {
+		auth = &md5Authenticator{pp}
+	}
+	return &server{queryer, auth}
 }
 
 // implements Queryer
