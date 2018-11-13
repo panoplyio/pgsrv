@@ -40,7 +40,7 @@ type msgReadWriter interface {
 
 // passwordProvider describes objects that are able to provide a password given a user name.
 type passwordProvider interface {
-	getPassword(user string) ([]byte, error)
+	GetPassword(user string) ([]byte, error)
 }
 
 // constantPasswordProvider is a password provider that always returns the same password,
@@ -49,7 +49,7 @@ type constantPasswordProvider struct {
 	password []byte
 }
 
-func (cpp *constantPasswordProvider) getPassword(user string) ([]byte, error) {
+func (cpp *constantPasswordProvider) GetPassword(user string) ([]byte, error) {
 	return cpp.password, nil
 }
 
@@ -59,7 +59,7 @@ type md5ConstantPasswordProvider struct {
 	password []byte
 }
 
-func (cpp *md5ConstantPasswordProvider) getPassword(user string) ([]byte, error) {
+func (cpp *md5ConstantPasswordProvider) GetPassword(user string) ([]byte, error) {
 	pu := append(cpp.password, []byte(user)...)
 	puHash := md5.Sum(pu)
 	return puHash[:], nil
@@ -99,7 +99,7 @@ func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]
 	}
 
 	user := args["user"].(string)
-	expectedPassword, err := a.pp.getPassword(user)
+	expectedPassword, err := a.pp.GetPassword(user)
 	actualPassword := extractPassword(m)
 
 	if !bytes.Equal(expectedPassword, actualPassword) {
@@ -147,7 +147,7 @@ func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interf
 	}
 
 	user := args["user"].(string)
-	storedHash, err := a.pp.getPassword(user)
+	storedHash, err := a.pp.GetPassword(user)
 	expectedHash := hashWithSalt(storedHash, salt)
 
 	actualHash := extractPassword(m)
