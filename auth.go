@@ -38,8 +38,8 @@ type msgReadWriter interface {
 	Read() (msg, error)
 }
 
-// passwordProvider describes objects that are able to provide a password given a user name.
-type passwordProvider interface {
+// PasswordProvider describes objects that are able to provide a password given a user name.
+type PasswordProvider interface {
 	GetPassword(user string) ([]byte, error)
 }
 
@@ -70,7 +70,7 @@ func (cpp *md5ConstantPasswordProvider) GetPassword(user string) ([]byte, error)
 //
 // It requires a passwordProvider implementation to verify that the provided password is correct.
 type clearTextAuthenticator struct {
-	pp passwordProvider
+	pp PasswordProvider
 }
 
 func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]interface{}) error {
@@ -116,7 +116,7 @@ func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]
 //
 // It requires a passwordProvider implementation to verify that the provided password is correct.
 type md5Authenticator struct {
-	pp passwordProvider
+	pp PasswordProvider
 }
 
 func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interface{}) error {

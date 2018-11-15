@@ -23,7 +23,7 @@ type server struct {
 func New(queryer Queryer) Server {
 	var auth authenticator
 	auth = &noPasswordAuthenticator{}
-	pp, ok := queryer.(passwordProvider)
+	pp, ok := queryer.(PasswordProvider)
 	if ok {
 		auth = &md5Authenticator{pp}
 	}
