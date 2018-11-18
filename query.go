@@ -39,9 +39,7 @@ func (q *query) Run() error {
 
 		// determine if it's a query or command
 		switch stmt.(type) {
-		case nodes.VariableShowStmt:
-			err = q.Query(ctx, stmt)
-		case nodes.SelectStmt:
+		case nodes.SelectStmt, nodes.VariableShowStmt:
 			err = q.Query(ctx, stmt)
 		default:
 			err = q.Exec(ctx, stmt)
@@ -134,9 +132,11 @@ type tagger struct {
 }
 
 func (res *tagger) Tag() (tag string, err error) {
+	// allow commands to not specify number of rows affected
+	skipResults := false
 	switch res.Node.(type) {
-	// VariableSetStmt can return SET or RESET depend on it's kind
 	case nodes.VariableSetStmt:
+		skipResults = true
 		kind := res.Node.(nodes.VariableSetStmt).Kind
 		switch kind {
 		case nodes.VAR_SET_VALUE, nodes.VAR_SET_CURRENT, nodes.VAR_SET_DEFAULT, nodes.VAR_SET_MULTI:
@@ -146,10 +146,8 @@ func (res *tagger) Tag() (tag string, err error) {
 		default:
 			tag = "???"
 		}
-		// VariableSetStmt result tag does not specify number of rows affected
-		return
-	// oid in INSERT is not implemented; defaults to 0
 	case nodes.InsertStmt:
+		// oid in INSERT is not implemented; defaults to 0
 		tag = "INSERT 0"
 	case nodes.CreateTableAsStmt:
 		tag = "SELECT" // follows the spec
@@ -159,15 +157,21 @@ func (res *tagger) Tag() (tag string, err error) {
 		tag = "FETCH"
 	case nodes.CopyStmt:
 		tag = "COPY"
+	case nodes.VacuumStmt:
+		skipResults = true
+		tag = "VACUUM"
 	case nodes.UpdateStmt:
 		tag = "UPDATE"
 	default:
 		tag = "UPDATE"
 	}
 
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return tag, err
+	if !skipResults {
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return tag, err
+		}
+		tag = fmt.Sprintf("%s %d", tag, affected)
 	}
-	return fmt.Sprintf("%s %d", tag, affected), nil
+	return tag, nil
 }
