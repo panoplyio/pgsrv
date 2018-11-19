@@ -160,6 +160,9 @@ func (res *tagger) Tag() (tag string, err error) {
 	case nodes.VacuumStmt:
 		skipResults = true
 		tag = "VACUUM"
+	case nodes.CreateRoleStmt:
+		skipResults = true
+		tag = "CREATE ROLE"
 	case nodes.UpdateStmt:
 		tag = "UPDATE"
 	default:
