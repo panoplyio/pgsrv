@@ -38,11 +38,17 @@ type msgReadWriter interface {
 	Read() (msg, error)
 }
 
+// AuthType represents various types of authentication
 type AuthType string
 
 const (
+	// Trust is an auth type for trusted networks, it does not require a password
 	Trust AuthType = "trust"
-	MD5   AuthType = "md5"
+
+	// MD5 is an auth type where authentication uses md5 hashes with random salt
+	MD5 AuthType = "md5"
+
+	// Plain is an auth type where password is sent as plain text over network
 	Plain AuthType = "plain"
 )
 
