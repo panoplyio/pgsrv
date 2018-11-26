@@ -38,8 +38,17 @@ type msgReadWriter interface {
 	Read() (msg, error)
 }
 
+type AuthType string
+
+const (
+	Trust AuthType = "trust"
+	MD5   AuthType = "md5"
+	Plain AuthType = "plain"
+)
+
 // PasswordProvider describes objects that are able to provide a password given a user name.
 type PasswordProvider interface {
+	Type() AuthType
 	GetPassword(user string) ([]byte, error)
 }
 
@@ -47,6 +56,10 @@ type PasswordProvider interface {
 // which it is given during the initialization.
 type constantPasswordProvider struct {
 	password []byte
+}
+
+func (cpp *constantPasswordProvider) Type() AuthType {
+	return Plain
 }
 
 func (cpp *constantPasswordProvider) GetPassword(user string) ([]byte, error) {
@@ -57,6 +70,11 @@ func (cpp *constantPasswordProvider) GetPassword(user string) ([]byte, error) {
 // username and a constant password as md5(concat(password, user)).
 type md5ConstantPasswordProvider struct {
 	password []byte
+}
+
+// Type implements PasswordProvider.
+func (cpp *md5ConstantPasswordProvider) Type() AuthType {
+	return MD5
 }
 
 func (cpp *md5ConstantPasswordProvider) GetPassword(user string) ([]byte, error) {
