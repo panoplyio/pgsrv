@@ -25,7 +25,12 @@ func New(queryer Queryer) Server {
 	auth = &noPasswordAuthenticator{}
 	pp, ok := queryer.(PasswordProvider)
 	if ok {
-		auth = &md5Authenticator{pp}
+		switch pp.Type() {
+		case MD5:
+			auth = &md5Authenticator{pp}
+		case Plain:
+			auth = &clearTextAuthenticator{pp}
+		}
 	}
 	return &server{queryer, auth}
 }
