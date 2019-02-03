@@ -167,7 +167,6 @@ func (res *tagger) Tag() (tag string, err error) {
 		skipResults = true
 		tag = "CREATE VIEW"
 	case nodes.CreateStmt:
-		skipResults = true
 		tag = "CREATE TABLE"
 	case nodes.UpdateStmt:
 		tag = "UPDATE"
