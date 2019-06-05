@@ -8,7 +8,6 @@ import (
 	nodes "github.com/lfittl/pg_query_go/nodes"
 	"io"
 	"math/rand"
-	"net"
 	"sync"
 )
 
@@ -21,7 +20,7 @@ var allSessions sync.Map
 // for postgres protocol and startup handshake process
 type session struct {
 	Server      *server
-	Conn        net.Conn
+	Conn        io.ReadWriteCloser
 	Args        map[string]interface{}
 	Secret      int32 // used for cancelling requests
 	Ctx         context.Context
