@@ -1,4 +1,4 @@
-package pgsrv
+package protocol
 
 import (
 	"encoding/binary"
@@ -8,14 +8,14 @@ import (
 
 func TestStartupVersion(t *testing.T) {
 	t.Run("typed message", func(t *testing.T) {
-		m := &msg{'p', 0, 0, 0, 5}
+		m := &Message{'p', 0, 0, 0, 5}
 		_, err := m.StartupVersion()
 
 		require.EqualError(t, err, "expected untyped startup message, got: 'p'")
 	})
 
 	t.Run("untyped message", func(t *testing.T) {
-		m := &msg{
+		m := &Message{
 			0, 0, 0, 8,
 			4, 210, 22, 47,
 		}
@@ -28,7 +28,7 @@ func TestStartupVersion(t *testing.T) {
 
 func TestStartupArgs(t *testing.T) {
 	t.Run("typed message", func(t *testing.T) {
-		m := &msg{'p', 0, 0, 0, 5}
+		m := &Message{'p', 0, 0, 0, 5}
 		_, err := m.StartupArgs()
 
 		require.EqualError(t, err, "expected untyped startup message, got: 'p'")
@@ -36,7 +36,7 @@ func TestStartupArgs(t *testing.T) {
 
 	t.Run("untyped message", func(t *testing.T) {
 		// an original message sent by psql client
-		m := &msg{
+		m := &Message{
 			0, 0, 0, 84, 0, 3, 0, 0, 117, 115,
 			101, 114, 0, 112, 111, 115, 116, 103, 114, 101,
 			115, 0, 100, 97, 116, 97, 98, 97, 115, 101,
@@ -61,7 +61,7 @@ func TestStartupArgs(t *testing.T) {
 	})
 
 	t.Run("untyped message, no params", func(t *testing.T) {
-		m := &msg{
+		m := &Message{
 			0, 0, 0, 9,
 			1, 2, 3, 4,
 			5, // this is an extra byte without a null terminator
@@ -78,7 +78,7 @@ func TestStartupArgs(t *testing.T) {
 func TestIsTLSRequest(t *testing.T) {
 	t.Run("tls", func(t *testing.T) {
 		// an actual message with version 1234.5679
-		m := &msg{0, 0, 0, 8, 4, 210, 22, 47}
+		m := &Message{0, 0, 0, 8, 4, 210, 22, 47}
 
 		isTLS := m.IsTLSRequest()
 		require.True(t, isTLS)
@@ -86,7 +86,7 @@ func TestIsTLSRequest(t *testing.T) {
 
 	t.Run("not tls", func(t *testing.T) {
 		// an actual message with version 1234.5679 with modified last byte
-		m := &msg{0, 0, 0, 8, 4, 210, 22, 42}
+		m := &Message{0, 0, 0, 8, 4, 210, 22, 42}
 
 		isTLS := m.IsTLSRequest()
 		require.False(t, isTLS)
@@ -95,14 +95,14 @@ func TestIsTLSRequest(t *testing.T) {
 
 func TestIsTerminate(t *testing.T) {
 	t.Run("terminate", func(t *testing.T) {
-		m := &msg{'X', 0, 0, 0, 5}
+		m := &Message{Terminate, 0, 0, 0, 5}
 
 		isTerminate := m.IsTerminate()
 		require.True(t, isTerminate)
 	})
 
 	t.Run("not terminate", func(t *testing.T) {
-		m := &msg{'x', 0, 0, 0, 5}
+		m := &Message{'x', 0, 0, 0, 5}
 
 		isTerminate := m.IsTerminate()
 		require.False(t, isTerminate)
@@ -111,21 +111,21 @@ func TestIsTerminate(t *testing.T) {
 
 func TestTlsResponseMsg(t *testing.T) {
 	t.Run("supported", func(t *testing.T) {
-		m := tlsResponseMsg(true)
+		m := TlsResponseMsg(true)
 
-		require.Equal(t, msg{'S'}, m)
+		require.Equal(t, Message{'S'}, m)
 	})
 
 	t.Run("not supported", func(t *testing.T) {
-		m := tlsResponseMsg(false)
+		m := TlsResponseMsg(false)
 
-		require.Equal(t, msg{'N'}, m)
+		require.Equal(t, Message{'N'}, m)
 	})
 }
 
 func TestKeyDataMsg(t *testing.T) {
-	m := keyDataMsg(1325119140, 942490198)
-	expectedMessage := msg{75, 0, 0, 0, 12, 78, 251, 182, 164, 56, 45, 66, 86}
+	m := BackendKeyData(1325119140, 942490198)
+	expectedMessage := Message{75, 0, 0, 0, 12, 78, 251, 182, 164, 56, 45, 66, 86}
 
 	require.Equal(t, expectedMessage, m)
 }
@@ -133,7 +133,7 @@ func TestKeyDataMsg(t *testing.T) {
 func TestIsCancel(t *testing.T) {
 	t.Run("cancel", func(t *testing.T) {
 		// an actual message with version 1234.5678
-		m := &msg{0, 0, 0, 8, 4, 210, 22, 46}
+		m := &Message{0, 0, 0, 8, 4, 210, 22, 46}
 
 		isCancel := m.IsCancel()
 		require.True(t, isCancel)
@@ -141,7 +141,7 @@ func TestIsCancel(t *testing.T) {
 
 	t.Run("not cancel", func(t *testing.T) {
 		// an actual message with version 1234.5678 with modified last byte
-		m := &msg{0, 0, 0, 8, 4, 210, 22, 42}
+		m := &Message{0, 0, 0, 8, 4, 210, 22, 42}
 
 		isCancel := m.IsCancel()
 		require.False(t, isCancel)
@@ -150,14 +150,14 @@ func TestIsCancel(t *testing.T) {
 
 func TestCancelKeyData(t *testing.T) {
 	t.Run("not a cancel message", func(t *testing.T) {
-		m := &msg{1, 2, 3, 4, 5, 6, 7, 8}
+		m := &Message{1, 2, 3, 4, 5, 6, 7, 8}
 		_, _, err := m.CancelKeyData()
 
 		require.EqualError(t, err, "not a cancel message")
 	})
 
 	t.Run("cancel message", func(t *testing.T) {
-		m := msg{
+		m := Message{
 			0, 0, 0, 16, 4, 210, 22, 46, // 1234.5678
 			0, 0, 0, 0, // pid
 			0, 0, 0, 0, // secret
@@ -178,8 +178,8 @@ func TestCancelKeyData(t *testing.T) {
 }
 
 func TestParameterStatus(t *testing.T) {
-	m := parameterStatusMsg("client_encoding", "utf8")
-	expectedMessage := msg{
+	m := ParameterStatus("client_encoding", "utf8")
+	expectedMessage := Message{
 		'S',
 		0, 0, 0, 25,
 		'c', 'l', 'i', 'e', 'n', 't', '_', 'e', 'n', 'c', 'o', 'd', 'i', 'n', 'g', 0,

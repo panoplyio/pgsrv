@@ -1,4 +1,4 @@
-package pgsrv
+package protocol
 
 import (
 	"encoding/binary"
@@ -30,8 +30,8 @@ var TypesOid = map[string]int{
 }
 
 // QueryText returns the SQL query string from a Query or Parse message
-func (m msg) QueryText() (string, error) {
-	if m.Type() != 'Q' {
+func (m Message) QueryText() (string, error) {
+	if m.Type() != Query {
 		return "", fmt.Errorf("not a query message: %q", m.Type())
 	}
 
@@ -40,7 +40,7 @@ func (m msg) QueryText() (string, error) {
 
 // RowDescriptionMsg is a message indicating that DataRow messages are about to
 // be transmitted and delivers their schema (column names/types)
-func rowDescriptionMsg(cols, types []string) msg {
+func RowDescription(cols, types []string) Message {
 	msg := []byte{'T' /* LEN = */, 0, 0, 0, 0 /* NUM FIELDS = */, 0, 0}
 	binary.BigEndian.PutUint16(msg[5:], uint16(len(cols)))
 
@@ -70,7 +70,7 @@ func rowDescriptionMsg(cols, types []string) msg {
 	return msg
 }
 
-func dataRowMsg(vals []string) msg {
+func DataRow(vals []string) Message {
 	msg := []byte{'D' /* LEN = */, 0, 0, 0, 0 /* NUM VALS = */, 0, 0}
 	binary.BigEndian.PutUint16(msg[5:], uint16(len(vals)))
 
@@ -85,7 +85,7 @@ func dataRowMsg(vals []string) msg {
 	return msg
 }
 
-func completeMsg(tag string) msg {
+func CommandComplete(tag string) Message {
 	msg := []byte{'C', 0, 0, 0, 0}
 	msg = append(msg, []byte(tag)...)
 	msg = append(msg, 0) // NULL TERMINATED
@@ -95,7 +95,7 @@ func completeMsg(tag string) msg {
 	return msg
 }
 
-func errMsg(err error) msg {
+func ErrorResponse(err error) Message {
 	msg := []byte{'E', 0, 0, 0, 0}
 
 	// https://www.postgresql.org/docs/9.3/static/protocol-error-fields.html
@@ -158,7 +158,7 @@ func errMsg(err error) msg {
 	return msg
 }
 
-// ReadyMsg is sent whenever the backend is ready for a new query cycle.
-func readyMsg() msg {
+// ReadyForQuery is sent whenever the backend is ready for a new query cycle.
+func ReadyForQuery() Message {
 	return []byte{'Z', 0, 0, 0, 5, 'I'}
 }
