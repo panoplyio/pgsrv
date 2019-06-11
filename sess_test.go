@@ -54,41 +54,17 @@ func (r *mockRows) Next(dest []driver.Value) error {
 	return nil
 }
 
-func filterStartupMessages(msg pgproto3.BackendMessage) bool {
-	switch msg.(type) {
-	case *pgproto3.ParameterStatus:
-		return false
-	case *pgproto3.BackendKeyData:
-		return false
-	case *pgproto3.NotificationResponse:
-		return false
-	}
-	return true
+type pgStoryScriptsRunner struct {
+	baseFolder string
+	init       func() (net.Conn, chan interface{})
 }
 
-func testStory(t *testing.T, story *pg_stories.Story) {
-	f, b := net.Pipe()
-
-	frontend, err := pgproto3.NewFrontend(f, f)
+func (p *pgStoryScriptsRunner) testStory(t *testing.T, story *pg_stories.Story) {
+	conn, killStory := p.init()
+	frontend, err := pgproto3.NewFrontend(conn, conn)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	srv := server{
-		authenticator: &noPasswordAuthenticator{},
-		queryer:       &mockQueryer{},
-	}
-
-	killStory := make(chan interface{})
-
-	sess := &session{Conn: b, Server: &srv}
-	go func() {
-		err = sess.Serve()
-		if err != nil {
-			killStory <- err
-			t.Fatal(err)
-		}
-	}()
 
 	story.Frontend = frontend
 	story.Filter = filterStartupMessages
@@ -103,10 +79,7 @@ func testStory(t *testing.T, story *pg_stories.Story) {
 	}
 }
 
-const TestDataFolder = "testdata"
-
-func TestSession_Serve(t *testing.T) {
-
+func (p *pgStoryScriptsRunner) run(t *testing.T) {
 	currentDirPath, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -138,7 +111,7 @@ func TestSession_Serve(t *testing.T) {
 					break
 				}
 				t.Run(name, func(t *testing.T) {
-					testStory(t, story)
+					p.testStory(t, story)
 				})
 			}
 
@@ -150,5 +123,85 @@ func TestSession_Serve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func filterStartupMessages(msg pgproto3.BackendMessage) bool {
+	switch msg.(type) {
+	case *pgproto3.ParameterStatus:
+		return false
+	case *pgproto3.BackendKeyData:
+		return false
+	case *pgproto3.NotificationResponse:
+		return false
+	}
+	return true
+}
+
+const TestDataFolder = "testdata"
+
+func TestSession_Serve(t *testing.T) {
+
+	currentDirPath, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dataTestPath := filepath.Join(currentDirPath, TestDataFolder)
+
+	runner := &pgStoryScriptsRunner{
+		baseFolder: dataTestPath,
+		init: func() (net.Conn, chan interface{}) {
+			f, b := net.Pipe()
+			srv := server{
+				authenticator: &noPasswordAuthenticator{},
+				queryer:       &mockQueryer{},
+			}
+
+			killStory := make(chan interface{})
+
+			sess := &session{Conn: b, Server: &srv}
+			go func() {
+				err = sess.Serve()
+				if err != nil {
+					killStory <- err
+					t.Fatal(err)
+				}
+			}()
+			return f, killStory
+		},
+	}
+
+	runner.run(t)
+
+}
+
+func TestRealServer(t *testing.T) {
+	// this test is for baseline testing for developer against local postgres server
+	t.Skip()
+
+	currentDirPath, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dataTestPath := filepath.Join(currentDirPath, TestDataFolder)
+
+	runner := &pgStoryScriptsRunner{
+		baseFolder: dataTestPath,
+		init: func() (net.Conn, chan interface{}) {
+
+			conn, err := net.Dial("tcp", "127.0.0.1:5432")
+			if err != nil {
+				t.Fatal(err)
+				return nil, nil
+			}
+
+			killStory := make(chan interface{})
+
+			return conn, killStory
+		},
+	}
+
+	runner.run(t)
 
 }
