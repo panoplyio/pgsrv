@@ -23,9 +23,9 @@ func startupSeq() []pg_stories.Step {
 	startupMsg.Parameters["user"] = "postgres"
 
 	return []pg_stories.Step{
-		&pg_stories.Command{&startupMsg},
-		&pg_stories.Response{&pgproto3.Authentication{}},
-		&pg_stories.Response{&pgproto3.ReadyForQuery{}},
+		&pg_stories.Command{FrontendMessage: &startupMsg},
+		&pg_stories.Response{BackendMessage: &pgproto3.Authentication{}},
+		&pg_stories.Response{BackendMessage: &pgproto3.ReadyForQuery{}},
 	}
 }
 

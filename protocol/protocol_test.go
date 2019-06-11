@@ -146,9 +146,9 @@ func TestProtocol_Read(t *testing.T) {
 			}()
 
 			err := runStory(t, f, []pgstories.Step{
-				&pgstories.Response{&pgproto3.ReadyForQuery{}},
-				&pgstories.Command{&pgproto3.Parse{}},
-				&pgstories.Command{&pgproto3.Bind{}},
+				&pgstories.Response{BackendMessage: &pgproto3.ReadyForQuery{}},
+				&pgstories.Command{FrontendMessage: &pgproto3.Parse{}},
+				&pgstories.Command{FrontendMessage: &pgproto3.Bind{}},
 			})
 
 			if err != nil {
@@ -188,13 +188,13 @@ func TestProtocol_Read(t *testing.T) {
 			}()
 
 			err := runStory(t, f, []pgstories.Step{
-				&pgstories.Response{&pgproto3.ReadyForQuery{}},
-				&pgstories.Command{&pgproto3.Parse{}},
-				&pgstories.Command{&pgproto3.Bind{}},
-				&pgstories.Command{&pgproto3.Sync{}},
-				&pgstories.Response{&pgproto3.ParseComplete{}},
-				&pgstories.Response{&pgproto3.BindComplete{}},
-				&pgstories.Response{&pgproto3.ReadyForQuery{}},
+				&pgstories.Response{BackendMessage: &pgproto3.ReadyForQuery{}},
+				&pgstories.Command{FrontendMessage: &pgproto3.Parse{}},
+				&pgstories.Command{FrontendMessage: &pgproto3.Bind{}},
+				&pgstories.Command{FrontendMessage: &pgproto3.Sync{}},
+				&pgstories.Response{BackendMessage: &pgproto3.ParseComplete{}},
+				&pgstories.Response{BackendMessage: &pgproto3.BindComplete{}},
+				&pgstories.Response{BackendMessage: &pgproto3.ReadyForQuery{}},
 			})
 
 			if err != nil {
