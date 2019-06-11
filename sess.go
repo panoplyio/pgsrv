@@ -31,10 +31,7 @@ type session struct {
 // Handle a connection session
 func (s *session) Serve() error {
 
-	p := protocol.Protocol{
-		R: s.Conn,
-		W: s.Conn,
-	}
+	p := protocol.NewProtocol(s.Conn, s.Conn)
 
 	msg, err := p.StartUp()
 	if err != nil {
@@ -114,18 +111,23 @@ func (s *session) Serve() error {
 			if err != nil {
 				return err
 			}
+		case protocol.Describe:
+			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
+			if err != nil {
+				return err
+			}
 		case protocol.Parse:
-			err = p.Write(protocol.ErrorResponse(fmt.Errorf("stub")))
+			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
 			}
 		case protocol.Bind:
-			err = p.Write(protocol.ErrorResponse(fmt.Errorf("stub")))
+			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
 			}
 		case protocol.Execute:
-			err = p.Write(protocol.ErrorResponse(fmt.Errorf("stub")))
+			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
 			}

@@ -14,29 +14,21 @@ const errWrongPassword = "password does not match for user \"%s\""
 // authenticator interface defines objects able to perform user authentication
 // that happens at the very beginning of every session.
 type authenticator interface {
-	// authenticate accepts a msgReadWriter instance and a map of args that describe
+	// authenticate accepts a protocol.MessageReadWriter instance and a map of args that describe
 	// the current session. It returns no error if the authentication succeeds,
 	// or an error if something fails.
 	//
 	// Authentication errors as well as welcome messages are sent by this function,
 	// so there is no need for the caller to send these. It is caller's responsibility
 	// though to terminate the session in case that an error is returned.
-	authenticate(rw msgReadWriter, args map[string]interface{}) error
+	authenticate(rw protocol.MessageReadWriter, args map[string]interface{}) error
 }
 
 // noPasswordAuthenticator responds with auth OK immediately.
 type noPasswordAuthenticator struct{}
 
-func (np *noPasswordAuthenticator) authenticate(rw msgReadWriter, args map[string]interface{}) error {
+func (np *noPasswordAuthenticator) authenticate(rw protocol.MessageReadWriter, args map[string]interface{}) error {
 	return rw.Write(authOKMsg())
-}
-
-// messageReadWriter describes objects that handle client-server communication.
-// Objects implementing this interface are used to send password requests to users,
-// and receive their responses.
-type msgReadWriter interface {
-	Write(m protocol.Message) error
-	Read() (protocol.Message, error)
 }
 
 // AuthType represents various types of authentication
@@ -98,7 +90,7 @@ type clearTextAuthenticator struct {
 	pp PasswordProvider
 }
 
-func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]interface{}) error {
+func (a *clearTextAuthenticator) authenticate(rw protocol.MessageReadWriter, args map[string]interface{}) error {
 	// AuthenticationClearText
 	passwordRequest := protocol.Message{
 		'R',
@@ -144,7 +136,7 @@ type md5Authenticator struct {
 	pp PasswordProvider
 }
 
-func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interface{}) error {
+func (a *md5Authenticator) authenticate(rw protocol.MessageReadWriter, args map[string]interface{}) error {
 	// AuthenticationMD5Password
 	passwordRequest := protocol.Message{
 		'R',

@@ -6,6 +6,14 @@ import (
 	"io"
 )
 
+func NewProtocol(r io.Reader, w io.Writer) *Protocol {
+	return &Protocol{
+		R: r,
+		W: w,
+	}
+}
+
+// Protocol manages the underlying wire protocol between backend and frontend.
 type Protocol struct {
 	R           io.Reader
 	W           io.Writer
@@ -13,6 +21,7 @@ type Protocol struct {
 	transaction *transaction
 }
 
+// StartUp handles the very first messages exchange between frontend and backend of new session
 func (p *Protocol) StartUp() (Message, error) {
 	// read the initial connection startup message
 	msg, err := p.read()
@@ -133,7 +142,7 @@ func (p *Protocol) read() (Message, error) {
 	return Message(msg), nil
 }
 
-// ReadMsgBody reads the body of the next message in the connection. The body is
+// readBody reads the body of the next message in the connection. The body is
 // comprised of an Int32 body-length (N), inclusive of the length itself
 // followed by N-bytes of the actual body.
 func (p *Protocol) readBody() ([]byte, error) {
@@ -162,7 +171,7 @@ func (p *Protocol) readBody() ([]byte, error) {
 	return msg, nil
 }
 
-// Write writes the provided protocol to the client connection
+// Write writes the provided message to the client connection
 func (p *Protocol) Write(m Message) error {
 	if p.transaction != nil {
 		return p.transaction.Write(m)
