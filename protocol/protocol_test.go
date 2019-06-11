@@ -95,12 +95,12 @@ func TestProtocol_Read(t *testing.T) {
 
 		msg := make(chan Message)
 		go func() {
-			if m, err := p.Read(); err != nil {
+			m, err := p.Read()
+			if err != nil {
 				t.Fatal(err)
 				return
-			} else {
-				msg <- m
 			}
+			msg <- m
 		}()
 
 		if m, err := frontend.Receive(); err != nil {
@@ -170,19 +170,19 @@ func TestProtocol_Read(t *testing.T) {
 
 			go func() {
 				for {
-					if m, err := p.Read(); err != nil {
+					m, err := p.Read()
+					if err != nil {
 						t.Fatal(err)
 						return
-					} else {
-						switch m.Type() {
-						case Parse:
-							err = p.Write(ParseComplete())
-						case Bind:
-							err = p.Write(BindComplete())
-						}
-						if err != nil {
-							t.Fatal(err)
-						}
+					}
+					switch m.Type() {
+					case Parse:
+						err = p.Write(ParseComplete())
+					case Bind:
+						err = p.Write(BindComplete())
+					}
+					if err != nil {
+						t.Fatal(err)
 					}
 				}
 			}()

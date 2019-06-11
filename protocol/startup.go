@@ -74,10 +74,10 @@ func (m Message) IsTerminate() bool {
 	return m.Type() == Terminate
 }
 
-// TlsResponseMsg creates a new single byte message indicating if the server
+// TLSResponse creates a new single byte message indicating if the server
 // supports TLS or not. If it does, the client must immediately proceed to
 // initiate the TLS handshake
-func TlsResponseMsg(supported bool) Message {
+func TLSResponse(supported bool) Message {
 	b := map[bool]byte{true: 'S', false: 'N'}[supported]
 	return Message([]byte{b})
 }
@@ -91,11 +91,13 @@ func BackendKeyData(pid int32, secret int32) Message {
 	return msg
 }
 
+// IsCancel returns whether the message is a cancel message or not
 func (m Message) IsCancel() bool {
 	v, _ := m.StartupVersion()
 	return v == "1234.5678"
 }
 
+// CancelKeyData returns the key data of a cancel message
 func (m Message) CancelKeyData() (int32, int32, error) {
 	if !m.IsCancel() {
 		return -1, -1, fmt.Errorf("not a cancel message")

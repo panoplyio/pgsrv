@@ -1,5 +1,6 @@
 package protocol
 
+// frontend message types
 const (
 	Query     = 'Q'
 	Terminate = 'X'
@@ -26,7 +27,7 @@ func (m Message) Type() byte {
 	return b
 }
 
-func NewMessage(b []byte) Message {
+func newMessage(b []byte) Message {
 	return Message(b)
 }
 

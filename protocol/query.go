@@ -38,7 +38,7 @@ func (m Message) QueryText() (string, error) {
 	return string(m[5:]), nil
 }
 
-// RowDescriptionMsg is a message indicating that DataRow messages are about to
+// RowDescription is a message indicating that DataRow messages are about to
 // be transmitted and delivers their schema (column names/types)
 func RowDescription(cols, types []string) Message {
 	msg := []byte{'T' /* LEN = */, 0, 0, 0, 0 /* NUM FIELDS = */, 0, 0}
@@ -70,6 +70,7 @@ func RowDescription(cols, types []string) Message {
 	return msg
 }
 
+// DataRow is sent for every row of resulted row set
 func DataRow(vals []string) Message {
 	msg := []byte{'D' /* LEN = */, 0, 0, 0, 0 /* NUM VALS = */, 0, 0}
 	binary.BigEndian.PutUint16(msg[5:], uint16(len(vals)))
@@ -85,6 +86,7 @@ func DataRow(vals []string) Message {
 	return msg
 }
 
+// CommandComplete is sent when query was fully executed and cursor reached the end of the row set
 func CommandComplete(tag string) Message {
 	msg := []byte{'C', 0, 0, 0, 0}
 	msg = append(msg, []byte(tag)...)
@@ -95,6 +97,7 @@ func CommandComplete(tag string) Message {
 	return msg
 }
 
+// ErrorResponse is sent whenever error has occurred
 func ErrorResponse(err error) Message {
 	msg := []byte{'E', 0, 0, 0, 0}
 

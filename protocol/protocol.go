@@ -6,6 +6,7 @@ import (
 	"io"
 )
 
+// NewProtocol creates a protocol
 func NewProtocol(r io.Reader, w io.Writer) *Protocol {
 	return &Protocol{
 		R: r,
@@ -35,7 +36,7 @@ func (p *Protocol) StartUp() (Message, error) {
 
 	if msg.IsTLSRequest() {
 		// currently we don't support TLS.
-		err := p.Write(TlsResponseMsg(false))
+		err := p.Write(TLSResponse(false))
 		if err != nil {
 			return nil, err
 		}
