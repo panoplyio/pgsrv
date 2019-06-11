@@ -61,7 +61,7 @@ func (s *session) Serve() error {
 	}
 
 	// handle authentication
-	err = s.Server.authenticator.authenticate(&p, s.Args)
+	err = s.Server.authenticator.authenticate(p, s.Args)
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,7 @@ func (s *session) Serve() error {
 			if err != nil {
 				return err
 			}
-			q := &query{protocol: &p, sql: sql, queryer: s.Server, execer: s.Server}
+			q := &query{protocol: p, sql: sql, queryer: s.Server, execer: s.Server}
 			err = q.Run(s)
 			if err != nil {
 				return err
