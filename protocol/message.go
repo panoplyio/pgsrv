@@ -10,7 +10,7 @@ const (
 	Sync      = 'S'
 )
 
-// Msg is just an alias for a slice of bytes that exposes common operations on
+// Message is just an alias for a slice of bytes that exposes common operations on
 // Postgres' client-server protocol messages.
 // see: https://www.postgresql.org/docs/9.2/static/protocol-message-formats.html
 // for postgres specific list of message formats
@@ -26,7 +26,7 @@ func (m Message) Type() byte {
 	return b
 }
 
-func newMsg(b []byte) Message {
+func NewMessage(b []byte) Message {
 	return Message(b)
 }
 

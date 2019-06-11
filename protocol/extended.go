@@ -1,11 +1,11 @@
 package protocol
 
-// CreatesTransaction tells you weather this is a frontend message that should start/continue a transaction
+// CreatesTransaction tells weather this is a frontend message that should start/continue a transaction
 func (m *Message) CreatesTransaction() bool {
 	return m.Type() == Parse || m.Type() == Bind
 }
 
-// EndsTransaction tells you weather this is a frontend message that should end the current transaction
+// EndsTransaction tells weather this is a frontend message that should end the current transaction
 func (m *Message) EndsTransaction() bool {
 	return m.Type() == Query || m.Type() == Sync
 }

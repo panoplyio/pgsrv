@@ -7,7 +7,7 @@ import (
 
 func TestNewMsg(t *testing.T) {
 	bs := []byte{'p', 0, 0, 0, 5}
-	actualMessage := newMsg(bs)
+	actualMessage := NewMessage(bs)
 	expectedMessage := Message{'p', 0, 0, 0, 5}
 
 	require.Equal(t, expectedMessage, actualMessage)
