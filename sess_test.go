@@ -179,7 +179,7 @@ func TestSession_Serve(t *testing.T) {
 
 func TestRealServer(t *testing.T) {
 	// this test is for baseline testing for developer against local postgres server
-	t.Skip()
+	t.Skip("used for local development as baseline testing against postgres server")
 
 	currentDirPath, err := os.Getwd()
 	if err != nil {
