@@ -72,26 +72,19 @@ func (p *Protocol) endTransaction() (err error) {
 }
 
 // Read reads and returns a single message from the connection.
-//
-// The Postgres protocol supports two types of messages: (1) untyped messages
-// are only mostly present during the initial startup process and starts with
-// the length of the message, followed by the content. (2) typed messages are
-// similar to the untyped messages except that they're prefixed with a
-// single-byte type character used to distinguish between the different message
-// types (query, prepare, etc.), and are the normal messages used for most
-// client-server communications.
-//
-// This method abstracts away this differentiation, returning the next available
-// message whether it's typed or not.
+// Read expects to be called only after a call to StartUp without an error response
+// otherwise, an error is returned
 func (p *Protocol) Read() (msg Message, err error) {
 	if p.transaction != nil {
 		msg, err = p.transaction.Read()
 	} else {
-		if p.initialized {
-			err = p.Write(ReadyForQuery())
-			if err != nil {
-				return
-			}
+		if !p.initialized {
+			err = fmt.Errorf("protocol not yet initialized")
+			return
+		}
+		err = p.Write(ReadyForQuery())
+		if err != nil {
+			return
 		}
 		msg, err = p.read()
 	}
