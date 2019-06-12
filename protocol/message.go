@@ -13,7 +13,7 @@ const (
 
 // Message is just an alias for a slice of bytes that exposes common operations on
 // Postgres' client-server protocol messages.
-// see: https://www.postgresql.org/docs/9.2/static/protocol-message-formats.html
+// see: https://www.postgresql.org/docs/current/protocol-message-formats.html
 // for postgres specific list of message formats
 type Message []byte
 
