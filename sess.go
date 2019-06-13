@@ -26,6 +26,7 @@ type session struct {
 	initialized   bool
 	queryer       Queryer
 	authenticator authenticator
+	statements    map[string]string
 }
 
 // Handle a connection session

@@ -1,17 +1,19 @@
 package protocol
 
+import "github.com/jackc/pgx/pgproto3"
+
 // transaction represents a sequence of frontend and backend messages
 // that apply only on commit. the purpose of transaction is to support
 // extended query flow.
 type transaction struct {
 	p   *Protocol
-	in  []Message
+	in  []pgproto3.FrontendMessage
 	out []Message
 }
 
-// Read uses Protocol to read the next message into the transaction's incoming messages buffer
-func (t *transaction) Read() (msg Message, err error) {
-	if msg, err = t.p.read(); err == nil {
+// NextFrontendMessage uses Protocol to read the next message into the transaction's incoming messages buffer
+func (t *transaction) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
+	if msg, err = t.p.readFrontendMessage(); err == nil {
 		t.in = append(t.in, msg)
 	}
 	return

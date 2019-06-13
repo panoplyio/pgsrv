@@ -3,14 +3,17 @@ package protocol
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/jackc/pgx/pgproto3"
 	"io"
 )
 
 // NewProtocol creates a protocol
 func NewProtocol(r io.Reader, w io.Writer) *Protocol {
+	backend, _ := pgproto3.NewBackend(r, nil)
 	return &Protocol{
-		R: r,
-		W: w,
+		R:       r,
+		W:       w,
+		backend: backend,
 	}
 }
 
@@ -18,6 +21,7 @@ func NewProtocol(r io.Reader, w io.Writer) *Protocol {
 type Protocol struct {
 	R           io.Reader
 	W           io.Writer
+	backend     *pgproto3.Backend
 	initialized bool
 	transaction *transaction
 }
@@ -25,10 +29,12 @@ type Protocol struct {
 // StartUp handles the very first messages exchange between frontend and backend of new session
 func (p *Protocol) StartUp() (Message, error) {
 	// read the initial connection startup message
-	msg, err := p.read()
+	raw, err := p.readBody()
 	if err != nil {
 		return nil, err
 	}
+
+	msg := Message(raw)
 
 	if msg.IsCancel() {
 		return msg, nil
@@ -41,10 +47,11 @@ func (p *Protocol) StartUp() (Message, error) {
 			return nil, err
 		}
 
-		msg, err = p.Read()
+		raw, err := p.readBody()
 		if err != nil {
 			return nil, err
 		}
+		msg = Message(raw)
 	}
 
 	v, err := msg.StartupVersion()
@@ -62,7 +69,7 @@ func (p *Protocol) StartUp() (Message, error) {
 }
 
 func (p *Protocol) beginTransaction() {
-	p.transaction = &transaction{p: p, in: []Message{}, out: []Message{}}
+	p.transaction = &transaction{p: p, in: []pgproto3.FrontendMessage{}, out: []Message{}}
 }
 
 func (p *Protocol) endTransaction() (err error) {
@@ -75,8 +82,15 @@ func (p *Protocol) endTransaction() (err error) {
 // Read expects to be called only after a call to StartUp without an error response
 // otherwise, an error is returned
 func (p *Protocol) Read() (msg Message, err error) {
+	return p.read()
+}
+
+// NextFrontendMessage reads and returns a single message from the connection.
+// NextFrontendMessage expects to be called only after a call to StartUp without an error response
+// otherwise, an error is returned
+func (p *Protocol) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
 	if p.transaction != nil {
-		msg, err = p.transaction.Read()
+		msg, err = p.transaction.NextFrontendMessage()
 	} else {
 		if !p.initialized {
 			err = fmt.Errorf("protocol not yet initialized")
@@ -86,19 +100,29 @@ func (p *Protocol) Read() (msg Message, err error) {
 		if err != nil {
 			return
 		}
-		msg, err = p.read()
+		msg, err = p.readFrontendMessage()
 	}
 	if err != nil {
 		return
 	}
 
-	if msg.CreatesTransaction() && p.transaction == nil {
-		p.beginTransaction()
-	} else if msg.EndsTransaction() && p.transaction != nil {
-		err = p.endTransaction()
+	if p.transaction == nil {
+		switch msg.(type) {
+		case *pgproto3.Parse, *pgproto3.Bind:
+			p.beginTransaction()
+		}
+	} else {
+		switch msg.(type) {
+		case *pgproto3.Query, *pgproto3.Sync:
+			err = p.endTransaction()
+		}
 	}
 
 	return
+}
+
+func (p *Protocol) readFrontendMessage() (pgproto3.FrontendMessage, error) {
+	return p.backend.Receive()
 }
 
 func (p *Protocol) read() (Message, error) {

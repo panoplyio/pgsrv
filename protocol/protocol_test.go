@@ -94,9 +94,9 @@ func TestProtocol_Read(t *testing.T) {
 		p := NewProtocol(b, b)
 		p.initialized = true
 
-		msg := make(chan Message)
+		msg := make(chan pgproto3.FrontendMessage)
 		go func() {
-			m, err := p.Read()
+			m, err := p.NextFrontendMessage()
 			require.NoError(t, err)
 
 			msg <- m
@@ -106,11 +106,13 @@ func TestProtocol_Read(t *testing.T) {
 		require.NoError(t, err)
 		require.IsType(t, &pgproto3.ReadyForQuery{}, m, "expected protocol to send ReadyForQuery message")
 
-		_, err = f.Write([]byte{'Q', 0, 0, 0, 4})
+		err = frontend.Send(&pgproto3.Query{})
 		require.NoError(t, err)
 
 		res := <-msg
-		require.Equalf(t, byte('Q'), res.Type(), "expected protocol to identify sent message as type 'Q'. actual: %c", res.Type())
+
+		require.IsTypef(t, &pgproto3.Query{}, res,
+			"expected protocol to identify sent message as type %T. actual: %T", &pgproto3.Query{}, res)
 
 		require.Nil(t, p.transaction, "expected protocol not to start transaction")
 
@@ -127,7 +129,7 @@ func TestProtocol_Read(t *testing.T) {
 
 			go func() {
 				for {
-					_, err := p.Read()
+					_, err := p.NextFrontendMessage()
 					require.NoError(t, err)
 				}
 			}()
@@ -152,13 +154,14 @@ func TestProtocol_Read(t *testing.T) {
 
 			go func() {
 				for {
-					m, err := p.Read()
+					m, err := p.NextFrontendMessage()
 					require.NoError(t, err)
 
-					switch m.Type() {
-					case Parse:
+					err = nil
+					switch m.(type) {
+					case *pgproto3.Parse:
 						err = p.Write(ParseComplete)
-					case Bind:
+					case *pgproto3.Bind:
 						err = p.Write(BindComplete)
 					}
 					require.NoError(t, err)
