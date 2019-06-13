@@ -7,8 +7,8 @@ import "github.com/jackc/pgx/pgproto3"
 // extended query flow.
 type transaction struct {
 	p   *Protocol
-	in  []pgproto3.FrontendMessage
-	out []Message
+	in  []pgproto3.FrontendMessage // TODO: asses if we need it after implementation of prepared statements and portals is done
+	out []Message // TODO: add size limit
 }
 
 // NextFrontendMessage uses Protocol to read the next message into the transaction's incoming messages buffer
