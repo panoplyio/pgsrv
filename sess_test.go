@@ -171,9 +171,7 @@ func TestSession_Serve(t *testing.T) {
 			return f, killStory
 		},
 	}
-
 	runner.run(t)
-
 }
 
 func TestRealServer(t *testing.T) {
