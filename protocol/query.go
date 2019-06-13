@@ -29,6 +29,9 @@ var TypesOid = map[string]int{
 	"ANY":        2276,
 }
 
+// ReadyForQuery is sent whenever the backend is ready for a new query cycle.
+var ReadyForQuery = []byte{'Z', 0, 0, 0, 5, 'I'}
+
 // QueryText returns the SQL query string from a Query or Parse message
 func (m Message) QueryText() (string, error) {
 	if m.Type() != Query {
@@ -159,9 +162,4 @@ func ErrorResponse(err error) Message {
 	// write the length
 	binary.BigEndian.PutUint32(msg[1:5], uint32(len(msg)-1))
 	return msg
-}
-
-// ReadyForQuery is sent whenever the backend is ready for a new query cycle.
-func ReadyForQuery() Message {
-	return []byte{'Z', 0, 0, 0, 5, 'I'}
 }

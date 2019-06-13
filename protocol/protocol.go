@@ -82,7 +82,7 @@ func (p *Protocol) Read() (msg Message, err error) {
 			err = fmt.Errorf("protocol not yet initialized")
 			return
 		}
-		err = p.Write(ReadyForQuery())
+		err = p.Write(ReadyForQuery)
 		if err != nil {
 			return
 		}

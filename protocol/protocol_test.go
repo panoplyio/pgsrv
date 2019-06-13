@@ -157,9 +157,9 @@ func TestProtocol_Read(t *testing.T) {
 
 					switch m.Type() {
 					case Parse:
-						err = p.Write(ParseComplete())
+						err = p.Write(ParseComplete)
 					case Bind:
-						err = p.Write(BindComplete())
+						err = p.Write(BindComplete)
 					}
 					require.NoError(t, err)
 				}

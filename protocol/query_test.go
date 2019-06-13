@@ -6,7 +6,7 @@ import (
 )
 
 func TestReadyMsg(t *testing.T) {
-	msg := ReadyForQuery()
+	msg := ReadyForQuery
 	require.Equal(t, []byte{'Z', 0, 0, 0, 5, 'I'}, []byte(msg))
 }
 
