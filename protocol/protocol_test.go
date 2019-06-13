@@ -20,7 +20,11 @@ func TestProtocol_StartUp(t *testing.T) {
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
 		p := &Protocol{W: comm, R: comm}
 
-		_, err := comm.Write([]byte{0, 0, 0, 8, 0, 3, 0, 0, 0, 0, 0, 0})
+		_, err := comm.Write([]byte{
+			0, 0, 0, 8, // length
+			0, 3, 0, 0, // 3.0
+			0, 0, 0, 0,
+		})
 		require.NoError(t, err)
 
 		err = comm.Flush()
@@ -36,7 +40,11 @@ func TestProtocol_StartUp(t *testing.T) {
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
 		p := &Protocol{W: comm, R: comm}
 
-		_, err := comm.Write([]byte{0, 0, 0, 8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0})
+		_, err := comm.Write([]byte{
+			0, 0, 0, 8, // length
+			0, 2, 0, 0, // 2.0
+			0, 0, 0, 0,
+		})
 		require.NoError(t, err)
 
 		err = comm.Flush()
