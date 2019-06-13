@@ -23,10 +23,10 @@ func TestTransaction_Read(t *testing.T) {
 	m, err := trans.Read()
 	require.NoError(t, err)
 	require.NotNilf(t, m,
-		"expected exactly 1 message in transaction incomming buffer. actual: %d", len(trans.in))
+		"expected exactly 1 message in transaction incoming buffer. actual: %d", len(trans.in))
 
 	require.Equalf(t, 1, len(trans.in),
-		"expected exactly 1 message in transaction incomming buffer. actual: %d", len(trans.in))
+		"expected exactly 1 message in transaction incoming buffer. actual: %d", len(trans.in))
 
 	require.Equalf(t, byte('P'), trans.in[0].Type(),
 		"expected type of the only message in transaction incoming buffer to be 'P'. actual: %c", trans.in[0].Type())
