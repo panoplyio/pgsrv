@@ -5,8 +5,8 @@ package protocol
 // extended query flow.
 type transaction struct {
 	p   *Protocol
-	in  []Message
-	out []Message
+	in  []Message // TODO: asses if we need it after implementation of prepared statements and portals is done
+	out []Message // TODO: add size limit
 }
 
 // Read uses Protocol to read the next message into the transaction's incoming messages buffer
