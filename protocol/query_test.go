@@ -25,7 +25,7 @@ func TestCompleteMsg(t *testing.T) {
 func TestQueryText(t *testing.T) {
 	t.Run("not a Q", func(t *testing.T) {
 		bs := []byte{'p', 0, 0, 0, 5}
-		msg := newMessage(bs)
+		msg := Message(bs)
 
 		res, err := msg.QueryText()
 		require.EqualError(t, err, "not a query message: 'p'")
@@ -35,7 +35,7 @@ func TestQueryText(t *testing.T) {
 	t.Run("Q with a string", func(t *testing.T) {
 		bs := []byte{Query, 0, 0, 0, 11}
 		bs = append(bs, []byte("thing")...)
-		msg := newMessage(bs)
+		msg := Message(bs)
 
 		res, err := msg.QueryText()
 		require.NoError(t, err)
@@ -45,7 +45,7 @@ func TestQueryText(t *testing.T) {
 	t.Run("Q with an empty string", func(t *testing.T) {
 		bs := []byte{Query, 0, 0, 0, 5}
 		bs = append(bs, []byte("")...)
-		msg := newMessage(bs)
+		msg := Message(bs)
 
 		res, err := msg.QueryText()
 		require.NoError(t, err)

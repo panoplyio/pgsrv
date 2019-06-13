@@ -27,10 +27,6 @@ func (m Message) Type() byte {
 	return b
 }
 
-func newMessage(b []byte) Message {
-	return Message(b)
-}
-
 // MessageReadWriter describes objects that handle client-server communication.
 // Objects implementing this interface are used to send password requests to users,
 // and receive their responses.
