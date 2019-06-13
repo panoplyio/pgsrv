@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/pgproto3"
 	pgstories "github.com/panoplyio/pg-stories"
+	"github.com/stretchr/testify/require"
 	"io"
 	"net"
 	"testing"
@@ -15,22 +16,18 @@ import (
 func TestProtocol_StartUp(t *testing.T) {
 
 	t.Run("supported protocol version", func(t *testing.T) {
-
 		buf := bytes.Buffer{}
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
 		p := &Protocol{W: comm, R: comm}
 
-		if _, err := comm.Write([]byte{0, 0, 0, 8, 0, 3, 0, 0, 0, 0, 0, 0}); err != nil {
-			t.Fatal(err)
-		}
-		if err := comm.Flush(); err != nil {
-			t.Fatal(err)
-		}
+		_, err := comm.Write([]byte{0, 0, 0, 8, 0, 3, 0, 0, 0, 0, 0, 0})
+		require.NoError(t, err)
 
-		if _, err := p.StartUp(); err != nil {
-			t.Fatal(err)
-		}
+		err = comm.Flush()
+		require.NoError(t, err)
 
+		_, err = p.StartUp()
+		require.NoError(t, err)
 	})
 
 	t.Run("unsupported protocol version", func(t *testing.T) {
@@ -39,16 +36,14 @@ func TestProtocol_StartUp(t *testing.T) {
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
 		p := &Protocol{W: comm, R: comm}
 
-		if _, err := comm.Write([]byte{0, 0, 0, 8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0}); err != nil {
-			t.Fatal(err)
-		}
-		if err := comm.Flush(); err != nil {
-			t.Fatal(err)
-		}
+		_, err := comm.Write([]byte{0, 0, 0, 8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0})
+		require.NoError(t, err)
 
-		if _, err := p.StartUp(); err == nil {
-			t.Fatal(fmt.Errorf("expected error of unsupporting version. got none"))
-		}
+		err = comm.Flush()
+		require.NoError(t, err)
+
+		_, err = p.StartUp()
+		require.Error(t, err, "expected error of unsupported version. got none")
 
 	})
 
@@ -86,9 +81,7 @@ func TestProtocol_Read(t *testing.T) {
 		f, b := net.Pipe()
 
 		frontend, err := pgproto3.NewFrontend(f, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		p := NewProtocol(b, b)
 		p.initialized = true
@@ -96,34 +89,22 @@ func TestProtocol_Read(t *testing.T) {
 		msg := make(chan Message)
 		go func() {
 			m, err := p.Read()
-			if err != nil {
-				t.Fatal(err)
-				return
-			}
+			require.NoError(t, err)
+
 			msg <- m
 		}()
 
-		if m, err := frontend.Receive(); err != nil {
-			t.Fatal(err)
-		} else {
-			if _, ok := m.(*pgproto3.ReadyForQuery); !ok {
-				t.Fatal("expected protocol to send ReadyForQuery message")
-			}
-		}
+		m, err := frontend.Receive()
+		require.NoError(t, err)
+		require.IsType(t, &pgproto3.ReadyForQuery{}, m, "expected protocol to send ReadyForQuery message")
 
-		if _, err := f.Write([]byte{'Q', 0, 0, 0, 4}); err != nil {
-			t.Fatal(err)
-		}
+		_, err = f.Write([]byte{'Q', 0, 0, 0, 4})
+		require.NoError(t, err)
 
 		res := <-msg
+		require.Equalf(t, byte('Q'), res.Type(), "expected protocol to identify sent message as type 'Q'. actual: %c", res.Type())
 
-		if res.Type() != 'Q' {
-			t.Fatalf("expected protocol to identify sent message as type 'Q'. actual: %c", res.Type())
-		}
-
-		if p.transaction != nil {
-			t.Fatal("expected protocol not to start transaction")
-		}
+		require.Nil(t, p.transaction, "expected protocol not to start transaction")
 
 	})
 
@@ -138,10 +119,8 @@ func TestProtocol_Read(t *testing.T) {
 
 			go func() {
 				for {
-					if _, err := p.Read(); err != nil {
-						t.Fatal(err)
-						return
-					}
+					_, err := p.Read()
+					require.NoError(t, err)
 				}
 			}()
 
@@ -150,14 +129,9 @@ func TestProtocol_Read(t *testing.T) {
 				&pgstories.Command{FrontendMessage: &pgproto3.Parse{}},
 				&pgstories.Command{FrontendMessage: &pgproto3.Bind{}},
 			})
+			require.NoError(t, err)
 
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if p.transaction == nil {
-				t.Fatal("expected protocol to start transaction")
-			}
+			require.NotNil(t, p.transaction, "expected protocol to start transaction")
 
 		})
 
@@ -171,19 +145,15 @@ func TestProtocol_Read(t *testing.T) {
 			go func() {
 				for {
 					m, err := p.Read()
-					if err != nil {
-						t.Fatal(err)
-						return
-					}
+					require.NoError(t, err)
+
 					switch m.Type() {
 					case Parse:
 						err = p.Write(ParseComplete())
 					case Bind:
 						err = p.Write(BindComplete())
 					}
-					if err != nil {
-						t.Fatal(err)
-					}
+					require.NoError(t, err)
 				}
 			}()
 
@@ -197,13 +167,9 @@ func TestProtocol_Read(t *testing.T) {
 				&pgstories.Response{BackendMessage: &pgproto3.ReadyForQuery{}},
 			})
 
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
-			if p.transaction != nil {
-				t.Fatal("expected protocol to end transaction")
-			}
+			require.Nil(t, p.transaction, "expected protocol not to end transaction")
 
 		})
 

@@ -3,7 +3,7 @@ package protocol
 import (
 	"bufio"
 	"bytes"
-	"fmt"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -14,38 +14,30 @@ func TestTransaction_Read(t *testing.T) {
 	p := &Protocol{W: comm, R: comm, initialized: true}
 	trans := &transaction{p: p, in: []Message{}, out: []Message{}}
 
-	if _, err := comm.Write([]byte{'P', 0, 0, 0, 4}); err != nil {
-		t.Fatal(err)
-	}
+	_, err := comm.Write([]byte{'P', 0, 0, 0, 4})
+	require.NoError(t, err)
 
-	if err := comm.Flush(); err != nil {
-		t.Fatal(err)
-	}
+	err = comm.Flush()
+	require.NoError(t, err)
 
-	if m, err := trans.Read(); err != nil {
-		t.Fatal(err)
-	} else if m == nil {
-		t.Fatal(fmt.Errorf("expected exactly 1 message in transaction incomming buffer. actual: %d", len(trans.in)))
-	}
+	m, err := trans.Read()
+	require.NoError(t, err)
+	require.NotNilf(t, m,
+		"expected exactly 1 message in transaction incomming buffer. actual: %d", len(trans.in))
 
-	if len(trans.in) != 1 {
-		t.Fatal(fmt.Errorf("expected exactly 1 message in transaction incomming buffer. actual: %d", len(trans.in)))
-	}
+	require.Equalf(t, 1, len(trans.in),
+		"expected exactly 1 message in transaction incomming buffer. actual: %d", len(trans.in))
 
-	if trans.in[0].Type() != 'P' {
-		t.Fatal(fmt.Errorf("expected type of the only message in transaction incomming buffer to be 'P'. actual: %c", trans.in[0].Type()))
-	}
+	require.Equalf(t, byte('P'), trans.in[0].Type(),
+		"expected type of the only message in transaction incoming buffer to be 'P'. actual: %c", trans.in[0].Type())
 
-	if len(trans.out) != 0 {
-		t.Fatal(fmt.Errorf("expected no message to exist in transaction's outgoind message buffer. actual buffer length: %d", len(trans.out)))
-	}
+	require.Equalf(t, 0, len(trans.out),
+		"expected no message to exist in transaction's outgoing message buffer. actual buffer length: %d", len(trans.out))
 
-	if err := trans.Write(CommandComplete("")); err != nil {
-		t.Fatal(err)
-	}
+	err = trans.Write(CommandComplete(""))
+	require.NoError(t, err)
 
-	if len(trans.out) != 1 {
-		t.Fatal(fmt.Errorf("expected exactly one message in transaction's outgoind message buffer. actual messages count: %d", len(trans.out)))
-	}
+	require.Equalf(t, 1, len(trans.out),
+		"expected exactly one message in transaction's outgoind message buffer. actual messages count: %d", len(trans.out))
 
 }
