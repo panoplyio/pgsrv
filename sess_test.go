@@ -140,8 +140,7 @@ func filterStartupMessages(msg pgproto3.BackendMessage) bool {
 const TestDataFolder = "testdata"
 
 func TestSession_Serve(t *testing.T) {
-	// extended query flow is still under development so we skip the tests
-	t.Skip()
+	t.Skip("extended query flow is still under development so we skip the tests")
 
 	currentDirPath, err := os.Getwd()
 	if err != nil {
@@ -178,7 +177,6 @@ func TestSession_Serve(t *testing.T) {
 }
 
 func TestRealServer(t *testing.T) {
-	// this test is for baseline testing for developer against local postgres server
 	t.Skip("used for local development as baseline testing against postgres server")
 
 	currentDirPath, err := os.Getwd()
