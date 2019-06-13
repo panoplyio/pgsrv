@@ -177,7 +177,7 @@ func TestProtocol_Read(t *testing.T) {
 
 			require.NoError(t, err)
 
-			require.Nil(t, p.transaction, "expected protocol not to end transaction")
+			require.Nil(t, p.transaction, "expected protocol to end transaction")
 
 		})
 
