@@ -25,16 +25,11 @@ func (t *transaction) Write(msg Message) error {
 
 func (t *transaction) flush() (err error) {
 	for len(t.out) > 0 {
-		m := t.out[0]
-		if len(t.out) > 1 {
-			t.out = t.out[1:]
-		} else {
-			t.out = nil
-		}
-		err = t.p.write(m)
+		err = t.p.write(t.out[0])
 		if err != nil {
 			break
 		}
+		t.out = t.out[1:]
 	}
 	return
 }
