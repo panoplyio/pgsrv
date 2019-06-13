@@ -3,6 +3,7 @@ package pgsrv
 import (
 	"context"
 	"fmt"
+	"github.com/jackc/pgx/pgproto3"
 	"github.com/panoplyio/pgsrv/protocol"
 	"io"
 	"math/rand"
@@ -33,13 +34,13 @@ type session struct {
 func (s *session) Serve() error {
 	p := protocol.NewProtocol(s.Conn, s.Conn)
 
-	msg, err := p.StartUp()
+	suMsg, err := p.StartUp()
 	if err != nil {
 		return err
 	}
 
-	if msg.IsCancel() {
-		pid, secret, err := msg.CancelKeyData()
+	if suMsg.IsCancel() {
+		pid, secret, err := suMsg.CancelKeyData()
 		if err != nil {
 			return err
 		}
@@ -55,7 +56,7 @@ func (s *session) Serve() error {
 		return nil // disconnect.
 	}
 
-	s.Args, err = msg.StartupArgs()
+	s.Args, err = suMsg.StartupArgs()
 	if err != nil {
 		return err
 	}
@@ -92,41 +93,37 @@ func (s *session) Serve() error {
 
 	// query-cycle
 	for {
-		msg, err = p.Read()
+		msg, err := p.NextFrontendMessage()
 		if err != nil {
 			return err
 		}
 
-		switch msg.Type() {
-		case protocol.Terminate:
+		switch msg.(type) {
+		case *pgproto3.Terminate:
 			s.Conn.Close()
 			return nil // client terminated intentionally
-		case protocol.Query:
-			sql, err := msg.QueryText()
-			if err != nil {
-				return err
-			}
-			q := &query{protocol: p, sql: sql, queryer: s.Server, execer: s.Server}
+		case *pgproto3.Query:
+			q := &query{protocol: p, sql: msg.(*pgproto3.Query).String, queryer: s.Server, execer: s.Server}
 			err = q.Run(s)
 			if err != nil {
 				return err
 			}
-		case protocol.Describe:
+		case *pgproto3.Describe:
 			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
 			}
-		case protocol.Parse:
+		case *pgproto3.Parse:
 			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
 			}
-		case protocol.Bind:
+		case *pgproto3.Bind:
 			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
 			}
-		case protocol.Execute:
+		case *pgproto3.Execute:
 			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
