@@ -35,11 +35,11 @@ type session struct {
 
 // Handle a connection session
 func (s *session) Serve() error {
-	p := protocol.NewTransport(s.Conn, s.Conn)
+	t := protocol.NewTransport(s.Conn, s.Conn)
 	s.statements = map[string]*pgx.PreparedStatement{}
 	s.portals = map[string]*portal{}
 
-	suMsg, err := p.StartUp()
+	suMsg, err := t.StartUp()
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (s *session) Serve() error {
 
 	// query-cycle
 	for {
-		msg, err := p.NextFrontendMessage()
+		msg, err := t.NextFrontendMessage()
 		if err != nil {
 			return err
 		}
@@ -109,7 +109,7 @@ func (s *session) Serve() error {
 			s.Conn.Close()
 			return nil // client terminated intentionally
 		case *pgproto3.Query:
-			q := &query{transport: p, sql: msg.(*pgproto3.Query).String, queryer: s.Server, execer: s.Server}
+			q := &query{transport: t, sql: msg.(*pgproto3.Query).String, queryer: s.Server, execer: s.Server}
 			err = q.Run(s)
 		case *pgproto3.Describe:
 			res, err = s.describe(msg.(*pgproto3.Describe))
@@ -118,10 +118,10 @@ func (s *session) Serve() error {
 		case *pgproto3.Bind:
 			res, err = s.bind(msg.(*pgproto3.Bind))
 		case *pgproto3.Execute:
-			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
+			err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 		}
 		for _, m := range res {
-			err = p.Write(m)
+			err = t.Write(m)
 			if err != nil {
 				break
 			}
