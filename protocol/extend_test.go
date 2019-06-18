@@ -11,7 +11,7 @@ func TestTransaction_Read(t *testing.T) {
 
 	buf := bytes.Buffer{}
 	comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
-	p := &Protocol{W: comm, R: comm, initialized: true}
+	p := &Transport{W: comm, R: comm, initialized: true}
 	trans := &transaction{p: p, in: []Message{}, out: []Message{}}
 
 	_, err := comm.Write([]byte{'P', 0, 0, 0, 4})

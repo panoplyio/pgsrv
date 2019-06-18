@@ -20,12 +20,12 @@ func (m *Message) EndsTransaction() bool {
 // that apply only on commit. the purpose of transaction is to support
 // extended query flow.
 type transaction struct {
-	p   *Protocol
+	p   *Transport
 	in  []Message // TODO: asses if we need it after implementation of prepared statements and portals is done
 	out []Message // TODO: add size limit
 }
 
-// Read uses Protocol to read the next message into the transaction's incoming messages buffer
+// Read uses Transport to read the next message into the transaction's incoming messages buffer
 func (t *transaction) Read() (msg Message, err error) {
 	if msg, err = t.p.read(); err == nil {
 		t.in = append(t.in, msg)

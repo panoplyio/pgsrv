@@ -18,7 +18,7 @@ func TestProtocol_StartUp(t *testing.T) {
 	t.Run("supported protocol version", func(t *testing.T) {
 		buf := bytes.Buffer{}
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
-		p := &Protocol{W: comm, R: comm}
+		p := &Transport{W: comm, R: comm}
 
 		_, err := comm.Write([]byte{
 			0, 0, 0, 8, // length
@@ -38,7 +38,7 @@ func TestProtocol_StartUp(t *testing.T) {
 
 		buf := bytes.Buffer{}
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
-		p := &Protocol{W: comm, R: comm}
+		p := &Transport{W: comm, R: comm}
 
 		_, err := comm.Write([]byte{
 			0, 0, 0, 8, // length
