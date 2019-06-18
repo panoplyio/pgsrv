@@ -21,6 +21,9 @@ func (t *transaction) NextFrontendMessage() (msg pgproto3.FrontendMessage, err e
 
 // Write writes the provided message into the transaction's outgoing messages buffer
 func (t *transaction) Write(msg Message) error {
+	if len(t.out) > 0 && t.out[len(t.out)-1].Type() == 'E' {
+		return nil
+	}
 	t.out = append(t.out, msg)
 	return nil
 }

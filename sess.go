@@ -3,7 +3,9 @@ package pgsrv
 import (
 	"context"
 	"fmt"
+	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/pgproto3"
+	"github.com/jackc/pgx/pgtype"
 	"github.com/panoplyio/pgsrv/protocol"
 	"io"
 	"math/rand"
@@ -27,12 +29,15 @@ type session struct {
 	initialized   bool
 	queryer       Queryer
 	authenticator authenticator
-	statements    map[string]string
+	statements    map[string]*pgx.PreparedStatement
+	portals       map[string]*portal
 }
 
 // Handle a connection session
 func (s *session) Serve() error {
 	p := protocol.NewProtocol(s.Conn, s.Conn)
+	s.statements = map[string]*pgx.PreparedStatement{}
+	s.portals = map[string]*portal{}
 
 	suMsg, err := p.StartUp()
 	if err != nil {
@@ -98,6 +103,7 @@ func (s *session) Serve() error {
 			return err
 		}
 
+		var res []protocol.Message
 		switch msg.(type) {
 		case *pgproto3.Terminate:
 			s.Conn.Close()
@@ -105,31 +111,70 @@ func (s *session) Serve() error {
 		case *pgproto3.Query:
 			q := &query{protocol: p, sql: msg.(*pgproto3.Query).String, queryer: s.Server, execer: s.Server}
 			err = q.Run(s)
-			if err != nil {
-				return err
-			}
 		case *pgproto3.Describe:
-			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
-			if err != nil {
-				return err
-			}
+			res, err = s.describe(msg.(*pgproto3.Describe))
 		case *pgproto3.Parse:
-			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
-			if err != nil {
-				return err
-			}
+			res, err = s.prepare(msg.(*pgproto3.Parse))
 		case *pgproto3.Bind:
-			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
-			if err != nil {
-				return err
-			}
+			res, err = s.bind(msg.(*pgproto3.Bind))
 		case *pgproto3.Execute:
 			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
+		}
+		for _, m := range res {
+			err = p.Write(m)
 			if err != nil {
-				return err
+				break
 			}
 		}
+		if err != nil {
+			return err
+		}
 	}
+}
+
+func (s *session) prepare(parseMsg *pgproto3.Parse) (res []protocol.Message, err error) {
+	ps := &pgx.PreparedStatement{
+		Name: parseMsg.Name,
+		SQL:  parseMsg.Query,
+	}
+	ps.ParameterOIDs = make([]pgtype.OID, len(parseMsg.ParameterOIDs))
+	for i := 0; i < len(parseMsg.ParameterOIDs); i++ {
+		ps.ParameterOIDs[i] = pgtype.OID(parseMsg.ParameterOIDs[i])
+	}
+	s.statements[ps.Name] = ps
+	res = append(res, protocol.ParseComplete)
+	return
+}
+
+func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Message, err error) {
+	switch describeMsg.ObjectType {
+	case 'S':
+		if ps, ok := s.statements[describeMsg.Name]; !ok {
+			res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", describeMsg.Name)))
+		} else {
+			res = append(res, protocol.ParameterDescription(ps))
+			// TODO: add a RowDescription message. this will require access to the catalog
+		}
+	case 'P':
+		err = fmt.Errorf("unsupported object type '%c'", describeMsg.ObjectType)
+	default:
+		err = fmt.Errorf("unrecognized object type '%c'", describeMsg.ObjectType)
+	}
+	return
+}
+
+func (s *session) bind(bindMsg *pgproto3.Bind) (res []protocol.Message, err error) {
+	ps, exist := s.statements[bindMsg.PreparedStatement]
+	if !exist {
+		res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", bindMsg.PreparedStatement)))
+		return
+	}
+	s.portals[bindMsg.DestinationPortal] = &portal{
+		srcPreparedStatement: ps.Name,
+		parameters:           bindMsg.Parameters,
+	}
+	res = append(res, protocol.BindComplete)
+	return
 }
 
 func (s *session) Set(k string, v interface{}) { s.Args[k] = v }
