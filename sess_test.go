@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/pgproto3"
 	"github.com/lfittl/pg_query_go/nodes"
 	"github.com/panoplyio/pg-stories"
+	"github.com/stretchr/testify/require"
 	"io"
 	"net"
 	"os"
@@ -75,20 +76,20 @@ func (p *pgStoryScriptsRunner) testStory(t *testing.T, story *pg_stories.Story) 
 	}()
 	err = story.Run(t, killStory)
 	if err != nil {
-		t.Fatal(err)
+		require.NoError(t, err)
 	}
 }
 
 func (p *pgStoryScriptsRunner) run(t *testing.T) {
 	currentDirPath, err := os.Getwd()
 	if err != nil {
-		t.Fatal(err)
+		require.NoError(t, err)
 	}
 
 	dataTestPath := filepath.Join(currentDirPath, TestDataFolder)
 	err = filepath.Walk(dataTestPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			require.NoError(t, err)
 		}
 
 		if info.IsDir() {
@@ -105,7 +106,7 @@ func (p *pgStoryScriptsRunner) run(t *testing.T) {
 			for {
 				story, name, err := storyBuilder.ParseNext()
 				if err != nil {
-					t.Fatal(err)
+					require.NoError(t, err)
 				}
 				if story == nil {
 					break
@@ -121,7 +122,7 @@ func (p *pgStoryScriptsRunner) run(t *testing.T) {
 	})
 
 	if err != nil {
-		t.Fatal(err)
+		require.NoError(t, err)
 	}
 }
 
@@ -144,7 +145,7 @@ func TestSession_Serve(t *testing.T) {
 
 	currentDirPath, err := os.Getwd()
 	if err != nil {
-		t.Fatal(err)
+		require.NoError(t, err)
 	}
 
 	dataTestPath := filepath.Join(currentDirPath, TestDataFolder)
@@ -165,7 +166,7 @@ func TestSession_Serve(t *testing.T) {
 				err = sess.Serve()
 				if err != nil {
 					killStory <- err
-					t.Fatal(err)
+					require.NoError(t, err)
 				}
 			}()
 			return f, killStory
@@ -179,7 +180,7 @@ func TestRealServer(t *testing.T) {
 
 	currentDirPath, err := os.Getwd()
 	if err != nil {
-		t.Fatal(err)
+		require.NoError(t, err)
 	}
 
 	dataTestPath := filepath.Join(currentDirPath, TestDataFolder)
@@ -190,7 +191,7 @@ func TestRealServer(t *testing.T) {
 
 			conn, err := net.Dial("tcp", "127.0.0.1:5432")
 			if err != nil {
-				t.Fatal(err)
+				require.NoError(t, err)
 				return nil, nil
 			}
 
