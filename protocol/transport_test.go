@@ -85,7 +85,7 @@ func TestProtocol_Read(t *testing.T) {
 		frontend, err := pgproto3.NewFrontend(f, f)
 		require.NoError(t, err)
 
-		p := NewProtocol(b, b)
+		p := NewTransport(b, b)
 		p.initialized = true
 
 		msg := make(chan Message)
@@ -113,7 +113,7 @@ func TestProtocol_Read(t *testing.T) {
 		t.Run("starts transaction", func(t *testing.T) {
 			f, b := net.Pipe()
 
-			p := NewProtocol(b, b)
+			p := NewTransport(b, b)
 			p.initialized = true
 
 			go func() {
@@ -137,7 +137,7 @@ func TestProtocol_Read(t *testing.T) {
 
 			f, b := net.Pipe()
 
-			p := NewProtocol(b, b)
+			p := NewTransport(b, b)
 			p.initialized = true
 
 			go func() {

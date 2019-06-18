@@ -6,8 +6,8 @@ import (
 	"io"
 )
 
-// NewProtocol creates a protocol
-func NewProtocol(r io.Reader, w io.Writer) *Transport {
+// NewTransport creates a protocol
+func NewTransport(r io.Reader, w io.Writer) *Transport {
 	return &Transport{
 		R: r,
 		W: w,
@@ -62,7 +62,7 @@ func (t *Transport) StartUp() (Message, error) {
 }
 
 func (t *Transport) beginTransaction() {
-	t.transaction = &transaction{p: t, in: []Message{}, out: []Message{}}
+	t.transaction = &transaction{transport: t, in: []Message{}, out: []Message{}}
 }
 
 func (t *Transport) endTransaction() (err error) {
