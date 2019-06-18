@@ -22,15 +22,6 @@ func (m *Message) EndsTransaction() bool {
 	return m.Type() == Query || m.Type() == Sync
 }
 
-// transaction represents a sequence of frontend and backend messages
-// that apply only on commit. the purpose of transaction is to support
-// extended query flow.
-type transaction struct {
-	transport *Transport
-	in        []pgproto3.FrontendMessage // TODO: asses if we need it after implementation of prepared statements and portals is done
-	out       []Message                  // TODO: add size limit
-}
-
 // ParameterDescription is sent when backend received Describe message from frontend
 // with ObjectType = 'S' - requesting to describe prepared statement with a provided name
 func ParameterDescription(ps *pgx.PreparedStatement) Message {
@@ -46,6 +37,15 @@ func ParameterDescription(ps *pgx.PreparedStatement) Message {
 	pgio.SetInt32(res[sp:], int32(len(res[sp:])))
 
 	return Message(res)
+}
+
+// transaction represents a sequence of frontend and backend messages
+// that apply only on commit. the purpose of transaction is to support
+// extended query flow.
+type transaction struct {
+	transport *Transport
+	in        []pgproto3.FrontendMessage // TODO: asses if we need it after implementation of prepared statements and portals is done
+	out       []Message                  // TODO: add size limit
 }
 
 // NextFrontendMessage uses Transport to read the next message into the transaction's incoming messages buffer

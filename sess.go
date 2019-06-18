@@ -35,7 +35,7 @@ type session struct {
 
 // Handle a connection session
 func (s *session) Serve() error {
-	p := protocol.NewProtocol(s.Conn, s.Conn)
+	p := protocol.NewTransport(s.Conn, s.Conn)
 	s.statements = map[string]*pgx.PreparedStatement{}
 	s.portals = map[string]*portal{}
 
@@ -67,12 +67,12 @@ func (s *session) Serve() error {
 	}
 
 	// handle authentication
-	err = s.Server.authenticator.authenticate(p, s.Args)
+	err = s.Server.authenticator.authenticate(t, s.Args)
 	if err != nil {
 		return err
 	}
 
-	err = p.Write(protocol.ParameterStatus("client_encoding", "utf8"))
+	err = t.Write(protocol.ParameterStatus("client_encoding", "utf8"))
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (s *session) Serve() error {
 	// notify the client of the pid and secret to be passed back when it wishes
 	// to interrupt this session
 	s.Ctx, s.CancelFunc = context.WithCancel(context.Background())
-	err = p.Write(protocol.BackendKeyData(pid, s.Secret))
+	err = t.Write(protocol.BackendKeyData(pid, s.Secret))
 	if err != nil {
 		return err
 	}
