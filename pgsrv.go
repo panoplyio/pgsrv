@@ -44,7 +44,7 @@ type Session interface {
 	All() map[string]interface{}
 }
 
-// Server is an interface for objects capable for handling the postgres protocol
+// Server is an interface for objects capable for handling the postgres transport
 // by serving client connections. Each connection is assigned a Session that's
 // maintained in-memory until the connection is closed.
 type Server interface {

@@ -18,7 +18,7 @@ var allSessions sync.Map
 // communications with that client.
 //
 // see: https://www.postgresql.org/docs/9.2/static/protocol.html
-// for postgres protocol and startup handshake process
+// for postgres transport and startup handshake process
 type session struct {
 	Server        *server
 	Conn          io.ReadWriteCloser
@@ -109,7 +109,7 @@ func (s *session) Serve() error {
 			s.Conn.Close()
 			return nil // client terminated intentionally
 		case *pgproto3.Query:
-			q := &query{protocol: p, sql: msg.(*pgproto3.Query).String, queryer: s.Server, execer: s.Server}
+			q := &query{transport: p, sql: msg.(*pgproto3.Query).String, queryer: s.Server, execer: s.Server}
 			err = q.Run(s)
 		case *pgproto3.Describe:
 			res, err = s.describe(msg.(*pgproto3.Describe))

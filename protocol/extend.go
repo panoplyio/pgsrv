@@ -2,16 +2,32 @@ package protocol
 
 import "github.com/jackc/pgx/pgproto3"
 
+// ParseComplete is sent when backend parsed a prepared statement successfully
+var ParseComplete = []byte{'1', 0, 0, 0, 4}
+
+// BindComplete is sent when backend prepared a portal and finished planning the query
+var BindComplete = []byte{'2', 0, 0, 0, 4}
+
+// CreatesTransaction tells weather this is a frontend message that should start/continue a transaction
+func (m *Message) CreatesTransaction() bool {
+	return m.Type() == Parse || m.Type() == Bind
+}
+
+// EndsTransaction tells weather this is a frontend message that should end the current transaction
+func (m *Message) EndsTransaction() bool {
+	return m.Type() == Query || m.Type() == Sync
+}
+
 // transaction represents a sequence of frontend and backend messages
 // that apply only on commit. the purpose of transaction is to support
 // extended query flow.
 type transaction struct {
-	p   *Protocol
+	p   *Transport
 	in  []pgproto3.FrontendMessage // TODO: asses if we need it after implementation of prepared statements and portals is done
 	out []Message                  // TODO: add size limit
 }
 
-// NextFrontendMessage uses Protocol to read the next message into the transaction's incoming messages buffer
+// NextFrontendMessage uses Transport to read the next message into the transaction's incoming messages buffer
 func (t *transaction) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
 	if msg, err = t.p.readFrontendMessage(); err == nil {
 		t.in = append(t.in, msg)
