@@ -1,6 +1,10 @@
 package protocol
 
-import "github.com/jackc/pgx/pgproto3"
+import (
+	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/pgio"
+	"github.com/jackc/pgx/pgproto3"
+)
 
 // ParseComplete is sent when backend parsed a prepared statement successfully
 var ParseComplete = []byte{'1', 0, 0, 0, 4}
@@ -22,14 +26,31 @@ func (m *Message) EndsTransaction() bool {
 // that apply only on commit. the purpose of transaction is to support
 // extended query flow.
 type transaction struct {
-	p   *Transport
-	in  []pgproto3.FrontendMessage // TODO: asses if we need it after implementation of prepared statements and portals is done
-	out []Message                  // TODO: add size limit
+	transport *Transport
+	in        []pgproto3.FrontendMessage // TODO: asses if we need it after implementation of prepared statements and portals is done
+	out       []Message                  // TODO: add size limit
+}
+
+// ParameterDescription is sent when backend received Describe message from frontend
+// with ObjectType = 'S' - requesting to describe prepared statement with a provided name
+func ParameterDescription(ps *pgx.PreparedStatement) Message {
+	res := []byte{'t'}
+	sp := len(res)
+	res = pgio.AppendInt32(res, -1)
+
+	res = pgio.AppendUint16(res, uint16(len(ps.ParameterOIDs)))
+	for _, oid := range ps.ParameterOIDs {
+		res = pgio.AppendUint32(res, uint32(oid))
+	}
+
+	pgio.SetInt32(res[sp:], int32(len(res[sp:])))
+
+	return Message(res)
 }
 
 // NextFrontendMessage uses Transport to read the next message into the transaction's incoming messages buffer
 func (t *transaction) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
-	if msg, err = t.p.readFrontendMessage(); err == nil {
+	if msg, err = t.transport.readFrontendMessage(); err == nil {
 		t.in = append(t.in, msg)
 	}
 	return
@@ -46,7 +67,7 @@ func (t *transaction) Write(msg Message) error {
 
 func (t *transaction) flush() (err error) {
 	for len(t.out) > 0 {
-		err = t.p.write(t.out[0])
+		err = t.transport.write(t.out[0])
 		if err != nil {
 			break
 		}

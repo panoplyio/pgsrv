@@ -10,7 +10,7 @@ import (
 // NewProtocol creates a protocol
 func NewProtocol(r io.Reader, w io.Writer) *Transport {
 	backend, _ := pgproto3.NewBackend(r, nil)
-	return &Protocol{
+	return &Transport{
 		R:       r,
 		W:       w,
 		backend: backend,
@@ -69,7 +69,7 @@ func (t *Transport) StartUp() (Message, error) {
 }
 
 func (t *Transport) beginTransaction() {
-	t.transaction = &transaction{p: t, in: []pgproto3.FrontendMessage{}, out: []Message{}}
+	t.transaction = &transaction{transport: t, in: []pgproto3.FrontendMessage{}, out: []Message{}}
 }
 
 func (t *Transport) endTransaction() (err error) {
@@ -90,7 +90,7 @@ func (t *Transport) Read() (msg Message, err error) {
 // otherwise, an error is returned
 func (t *Transport) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
 	if t.transaction != nil {
-		msg, err = p.transaction.NextFrontendMessage()
+		msg, err = t.transaction.NextFrontendMessage()
 	} else {
 		if !t.initialized {
 			err = fmt.Errorf("transport not yet initialized")
@@ -121,11 +121,11 @@ func (t *Transport) NextFrontendMessage() (msg pgproto3.FrontendMessage, err err
 	return
 }
 
-func (t *Transaction) readFrontendMessage() (pgproto3.FrontendMessage, error) {
+func (t *Transport) readFrontendMessage() (pgproto3.FrontendMessage, error) {
 	return t.backend.Receive()
 }
 
-func (t *Transaction) read() (Message, error) {
+func (t *Transport) read() (Message, error) {
 	typeChar := make([]byte, 1)
 
 	if t.initialized {
