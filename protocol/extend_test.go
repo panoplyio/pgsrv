@@ -8,7 +8,6 @@ import (
 )
 
 func TestTransaction_Read(t *testing.T) {
-
 	buf := bytes.Buffer{}
 	comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
 	p := &Transport{W: comm, R: comm, initialized: true}
@@ -39,5 +38,4 @@ func TestTransaction_Read(t *testing.T) {
 
 	require.Equalf(t, 1, len(trans.out),
 		"expected exactly one message in transaction's outgoind message buffer. actual messages count: %d", len(trans.out))
-
 }

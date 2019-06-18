@@ -14,7 +14,6 @@ import (
 )
 
 func TestProtocol_StartUp(t *testing.T) {
-
 	t.Run("supported protocol version", func(t *testing.T) {
 		buf := bytes.Buffer{}
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
@@ -35,7 +34,6 @@ func TestProtocol_StartUp(t *testing.T) {
 	})
 
 	t.Run("unsupported protocol version", func(t *testing.T) {
-
 		buf := bytes.Buffer{}
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
 		p := &Transport{W: comm, R: comm}
@@ -52,9 +50,7 @@ func TestProtocol_StartUp(t *testing.T) {
 
 		_, err = p.StartUp()
 		require.Error(t, err, "expected error of unsupported version. got none")
-
 	})
-
 }
 
 func runStory(t *testing.T, conn io.ReadWriter, steps []pgstories.Step) error {
@@ -83,9 +79,7 @@ func runStory(t *testing.T, conn io.ReadWriter, steps []pgstories.Step) error {
 }
 
 func TestProtocol_Read(t *testing.T) {
-
 	t.Run("standard message flow", func(t *testing.T) {
-
 		f, b := net.Pipe()
 
 		frontend, err := pgproto3.NewFrontend(f, f)
@@ -113,13 +107,10 @@ func TestProtocol_Read(t *testing.T) {
 		require.Equalf(t, byte('Q'), res.Type(), "expected protocol to identify sent message as type 'Q'. actual: %c", res.Type())
 
 		require.Nil(t, p.transaction, "expected protocol not to start transaction")
-
 	})
 
 	t.Run("extended query message flow", func(t *testing.T) {
-
 		t.Run("starts transaction", func(t *testing.T) {
-
 			f, b := net.Pipe()
 
 			p := NewProtocol(b, b)
@@ -140,7 +131,6 @@ func TestProtocol_Read(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NotNil(t, p.transaction, "expected protocol to start transaction")
-
 		})
 
 		t.Run("ends transaction", func(t *testing.T) {
@@ -178,9 +168,6 @@ func TestProtocol_Read(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Nil(t, p.transaction, "expected protocol to end transaction")
-
 		})
-
 	})
-
 }

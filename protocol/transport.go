@@ -140,7 +140,6 @@ func (t *Transport) read() (Message, error) {
 // comprised of an Int32 body-length (N), inclusive of the length itself
 // followed by N-bytes of the actual body.
 func (t *Transport) readBody() ([]byte, error) {
-
 	// messages starts with an Int32 Length of message contents in bytes,
 	// including self.
 	lenBytes := make([]byte, 4)
