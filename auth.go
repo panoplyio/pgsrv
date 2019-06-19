@@ -14,7 +14,7 @@ const errWrongPassword = "password does not match for user \"%s\""
 // authenticator interface defines objects able to perform user authentication
 // that happens at the very beginning of every session.
 type authenticator interface {
-	// authenticate accepts a transport.MessageReadWriter instance and a map of args that describe
+	// authenticate accepts a protocol.MessageReadWriter instance and a map of args that describe
 	// the current session. It returns no error if the authentication succeeds,
 	// or an error if something fails.
 	//

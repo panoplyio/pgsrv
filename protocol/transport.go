@@ -108,7 +108,7 @@ func (t *Transport) NextFrontendMessage() (msg pgproto3.FrontendMessage, err err
 
 	if t.transaction == nil {
 		switch msg.(type) {
-		case *pgproto3.Parse, *pgproto3.Bind:
+		case *pgproto3.Parse, *pgproto3.Bind, *pgproto3.Describe:
 			t.beginTransaction()
 		}
 	} else {

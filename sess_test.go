@@ -62,16 +62,19 @@ type pgStoryScriptsRunner struct {
 
 func (p *pgStoryScriptsRunner) testStory(t *testing.T, story *pg_stories.Story) {
 	conn, killStory := p.init()
+	frontend, err := pgproto3.NewFrontend(conn, conn)
+	if err != nil {
+		require.NoError(t, err)
+	}
 
+	story.Frontend = frontend
 	story.Filter = filterStartupMessages
 	timer := time.NewTimer(time.Second * 2)
 	go func() {
 		t := <-timer.C
 		killStory <- t
 	}()
-	err := story.Run(conn, conn, func(s string) {
-		t.Log(s)
-	}, killStory)
+	err = story.Run(t, killStory)
 	if err != nil {
 		require.NoError(t, err)
 	}

@@ -18,7 +18,7 @@ var allSessions sync.Map
 // communications with that client.
 //
 // see: https://www.postgresql.org/docs/9.2/static/protocol.html
-// for postgres transport and startup handshake process
+// for postgres protocol and startup handshake process
 type session struct {
 	Server        *server
 	Conn          io.ReadWriteCloser
