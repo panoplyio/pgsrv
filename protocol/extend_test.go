@@ -8,11 +8,10 @@ import (
 )
 
 func TestTransaction_Read(t *testing.T) {
-
 	buf := bytes.Buffer{}
 	comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
-	p := &Protocol{W: comm, R: comm, initialized: true}
-	trans := &transaction{p: p, in: []Message{}, out: []Message{}}
+	p := &Transport{W: comm, R: comm, initialized: true}
+	trans := &transaction{transport: p, in: []Message{}, out: []Message{}}
 
 	_, err := comm.Write([]byte{'P', 0, 0, 0, 4})
 	require.NoError(t, err)
@@ -22,8 +21,8 @@ func TestTransaction_Read(t *testing.T) {
 
 	m, err := trans.Read()
 	require.NoError(t, err)
-	require.NotNilf(t, m,
-		"expected exactly 1 message in transaction incoming buffer. actual: %d", len(trans.in))
+	require.NotNil(t, m,
+		"expected to receive message from transaction. got nil")
 
 	require.Equalf(t, 1, len(trans.in),
 		"expected exactly 1 message in transaction incoming buffer. actual: %d", len(trans.in))
@@ -39,5 +38,4 @@ func TestTransaction_Read(t *testing.T) {
 
 	require.Equalf(t, 1, len(trans.out),
 		"expected exactly one message in transaction's outgoind message buffer. actual messages count: %d", len(trans.out))
-
 }

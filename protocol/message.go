@@ -28,8 +28,8 @@ func (m Message) Type() byte {
 }
 
 // MessageReadWriter describes objects that handle client-server communication.
-// Objects implementing this interface are used to send password requests to users,
-// and receive their responses.
+// Objects implementing this interface are used by logic operations to send Message
+// objects to frontend and receive Message back from it
 type MessageReadWriter interface {
 	Write(m Message) error
 	Read() (Message, error)

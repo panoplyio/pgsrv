@@ -30,9 +30,9 @@ type session struct {
 
 // Handle a connection session
 func (s *session) Serve() error {
-	p := protocol.NewProtocol(s.Conn, s.Conn)
+	t := protocol.NewTransport(s.Conn, s.Conn)
 
-	msg, err := p.StartUp()
+	msg, err := t.StartUp()
 	if err != nil {
 		return err
 	}
@@ -60,12 +60,12 @@ func (s *session) Serve() error {
 	}
 
 	// handle authentication
-	err = s.Server.authenticator.authenticate(p, s.Args)
+	err = s.Server.authenticator.authenticate(t, s.Args)
 	if err != nil {
 		return err
 	}
 
-	err = p.Write(protocol.ParameterStatus("client_encoding", "utf8"))
+	err = t.Write(protocol.ParameterStatus("client_encoding", "utf8"))
 	if err != nil {
 		return err
 	}
@@ -84,14 +84,14 @@ func (s *session) Serve() error {
 	// notify the client of the pid and secret to be passed back when it wishes
 	// to interrupt this session
 	s.Ctx, s.CancelFunc = context.WithCancel(context.Background())
-	err = p.Write(protocol.BackendKeyData(pid, s.Secret))
+	err = t.Write(protocol.BackendKeyData(pid, s.Secret))
 	if err != nil {
 		return err
 	}
 
 	// query-cycle
 	for {
-		msg, err = p.Read()
+		msg, err = t.Read()
 		if err != nil {
 			return err
 		}
@@ -105,28 +105,28 @@ func (s *session) Serve() error {
 			if err != nil {
 				return err
 			}
-			q := &query{protocol: p, sql: sql, queryer: s.Server, execer: s.Server}
+			q := &query{transport: t, sql: sql, queryer: s.Server, execer: s.Server}
 			err = q.Run(s)
 			if err != nil {
 				return err
 			}
 		case protocol.Describe:
-			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
+			err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
 			}
 		case protocol.Parse:
-			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
+			err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
 			}
 		case protocol.Bind:
-			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
+			err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
 			}
 		case protocol.Execute:
-			err = p.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
+			err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
 			}
