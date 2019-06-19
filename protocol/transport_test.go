@@ -54,8 +54,14 @@ func TestProtocol_StartUp(t *testing.T) {
 }
 
 func runStory(t *testing.T, conn io.ReadWriter, steps []pgstories.Step) error {
+	frontend, err := pgproto3.NewFrontend(conn, conn)
+	if err != nil {
+		return err
+	}
+
 	story := &pgstories.Story{
 		Steps:    steps,
+		Frontend: frontend,
 	}
 
 	sigKill := make(chan interface{})
@@ -65,9 +71,7 @@ func runStory(t *testing.T, conn io.ReadWriter, steps []pgstories.Step) error {
 		sigKill <- fmt.Errorf("timeout")
 	}()
 
-	err := story.Run(conn, conn, func(s string) {
-		t.Log(s)
-	}, sigKill)
+	err = story.Run(t, sigKill)
 	if err != nil {
 		timer.Stop()
 	}
@@ -84,9 +88,9 @@ func TestProtocol_Read(t *testing.T) {
 		p := NewTransport(b, b)
 		p.initialized = true
 
-		msg := make(chan pgproto3.FrontendMessage)
+		msg := make(chan Message)
 		go func() {
-			m, err := p.NextFrontendMessage()
+			m, err := p.Read()
 			require.NoError(t, err)
 
 			msg <- m
@@ -96,13 +100,11 @@ func TestProtocol_Read(t *testing.T) {
 		require.NoError(t, err)
 		require.IsType(t, &pgproto3.ReadyForQuery{}, m, "expected protocol to send ReadyForQuery message")
 
-		err = frontend.Send(&pgproto3.Query{})
+		_, err = f.Write([]byte{'Q', 0, 0, 0, 4})
 		require.NoError(t, err)
 
 		res := <-msg
-
-		require.IsTypef(t, &pgproto3.Query{}, res,
-			"expected protocol to identify sent message as type %T. actual: %T", &pgproto3.Query{}, res)
+		require.Equalf(t, byte('Q'), res.Type(), "expected protocol to identify sent message as type 'Q'. actual: %c", res.Type())
 
 		require.Nil(t, p.transaction, "expected protocol not to start transaction")
 	})
@@ -116,7 +118,7 @@ func TestProtocol_Read(t *testing.T) {
 
 			go func() {
 				for {
-					_, err := p.NextFrontendMessage()
+					_, err := p.Read()
 					require.NoError(t, err)
 				}
 			}()
@@ -139,14 +141,13 @@ func TestProtocol_Read(t *testing.T) {
 
 			go func() {
 				for {
-					m, err := p.NextFrontendMessage()
+					m, err := p.Read()
 					require.NoError(t, err)
 
-					err = nil
-					switch m.(type) {
-					case *pgproto3.Parse:
+					switch m.Type() {
+					case Parse:
 						err = p.Write(ParseComplete)
-					case *pgproto3.Bind:
+					case Bind:
 						err = p.Write(BindComplete)
 					}
 					require.NoError(t, err)
