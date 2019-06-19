@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/pgproto3"
 	"github.com/lfittl/pg_query_go/nodes"
 	"github.com/panoplyio/pg-stories"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net"
 	"os"
@@ -62,31 +61,34 @@ type pgStoryScriptsRunner struct {
 
 func (p *pgStoryScriptsRunner) testStory(t *testing.T, story *pg_stories.Story) {
 	conn, killStory := p.init()
+	frontend, err := pgproto3.NewFrontend(conn, conn)
+	if err != nil {
+		t.Fatal(err)
+	}
 
+	story.Frontend = frontend
 	story.Filter = filterStartupMessages
 	timer := time.NewTimer(time.Second * 2)
 	go func() {
 		t := <-timer.C
 		killStory <- t
 	}()
-	err := story.Run(conn, conn, func(s string) {
-		t.Log(s)
-	}, killStory)
+	err = story.Run(t, killStory)
 	if err != nil {
-		require.NoError(t, err)
+		t.Fatal(err)
 	}
 }
 
 func (p *pgStoryScriptsRunner) run(t *testing.T) {
 	currentDirPath, err := os.Getwd()
 	if err != nil {
-		require.NoError(t, err)
+		t.Fatal(err)
 	}
 
 	dataTestPath := filepath.Join(currentDirPath, TestDataFolder)
 	err = filepath.Walk(dataTestPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			require.NoError(t, err)
+			return err
 		}
 
 		if info.IsDir() {
@@ -103,7 +105,7 @@ func (p *pgStoryScriptsRunner) run(t *testing.T) {
 			for {
 				story, name, err := storyBuilder.ParseNext()
 				if err != nil {
-					require.NoError(t, err)
+					t.Fatal(err)
 				}
 				if story == nil {
 					break
@@ -119,7 +121,7 @@ func (p *pgStoryScriptsRunner) run(t *testing.T) {
 	})
 
 	if err != nil {
-		require.NoError(t, err)
+		t.Fatal(err)
 	}
 }
 
@@ -142,7 +144,7 @@ func TestSession_Serve(t *testing.T) {
 
 	currentDirPath, err := os.Getwd()
 	if err != nil {
-		require.NoError(t, err)
+		t.Fatal(err)
 	}
 
 	dataTestPath := filepath.Join(currentDirPath, TestDataFolder)
@@ -163,7 +165,7 @@ func TestSession_Serve(t *testing.T) {
 				err = sess.Serve()
 				if err != nil {
 					killStory <- err
-					require.NoError(t, err)
+					t.Fatal(err)
 				}
 			}()
 			return f, killStory
@@ -177,7 +179,7 @@ func TestRealServer(t *testing.T) {
 
 	currentDirPath, err := os.Getwd()
 	if err != nil {
-		require.NoError(t, err)
+		t.Fatal(err)
 	}
 
 	dataTestPath := filepath.Join(currentDirPath, TestDataFolder)
@@ -188,7 +190,7 @@ func TestRealServer(t *testing.T) {
 
 			conn, err := net.Dial("tcp", "127.0.0.1:5432")
 			if err != nil {
-				require.NoError(t, err)
+				t.Fatal(err)
 				return nil, nil
 			}
 
@@ -199,4 +201,5 @@ func TestRealServer(t *testing.T) {
 	}
 
 	runner.run(t)
+
 }
