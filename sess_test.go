@@ -64,7 +64,7 @@ func (p *pgStoryScriptsRunner) testStory(t *testing.T, story *pg_stories.Story) 
 	conn, killStory := p.init()
 	frontend, err := pgproto3.NewFrontend(conn, conn)
 	if err != nil {
-		t.Fatal(err)
+		require.NoError(t, err)
 	}
 
 	story.Frontend = frontend
