@@ -106,7 +106,7 @@ func (s *session) Serve() error {
 				transport: t,
 				sql:       msg.(*pgproto3.Query).String,
 				queryer:   s.Server,
-				execer:    s.Server
+				execer:    s.Server,
 			}
 			err = q.Run(s)
 			if err != nil {

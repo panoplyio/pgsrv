@@ -1,5 +1,7 @@
 package protocol
 
+import "github.com/jackc/pgx/pgproto3"
+
 // ParseComplete is sent when backend parsed a prepared statement successfully
 var ParseComplete = []byte{'1', 0, 0, 0, 4}
 
@@ -21,13 +23,13 @@ func (m *Message) EndsTransaction() bool {
 // extended query flow.
 type transaction struct {
 	transport *Transport
-	in        []Message // TODO: asses if we need it after implementation of prepared statements and portals is done
-	out       []Message // TODO: add size limit
+	in        []pgproto3.FrontendMessage // TODO: asses if we need it after implementation of prepared statements and portals is done
+	out       []Message                  // TODO: add size limit
 }
 
-// Read uses Transport to read the next message into the transaction's incoming messages buffer
-func (t *transaction) Read() (msg Message, err error) {
-	if msg, err = t.transport.read(); err == nil {
+// NextFrontendMessage uses Protocol to read the next message into the transaction's incoming messages buffer
+func (t *transaction) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
+	if msg, err = t.transport.readFrontendMessage(); err == nil {
 		t.in = append(t.in, msg)
 	}
 	return

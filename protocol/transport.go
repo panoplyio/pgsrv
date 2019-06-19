@@ -11,8 +11,8 @@ import (
 func NewTransport(r io.Reader, w io.Writer) *Transport {
 	backend, _ := pgproto3.NewBackend(r, nil)
 	return &Transport{
-		R: r,
-		W: w,
+		R:       r,
+		W:       w,
 		backend: backend,
 	}
 }
@@ -68,8 +68,8 @@ func (t *Transport) StartUp() (Message, error) {
 	return msg, nil
 }
 
-func (p *Protocol) beginTransaction() {
-	p.transaction = &transaction{transport: t, in: []pgproto3.FrontendMessage{}, out: []Message{}}
+func (t *Transport) beginTransaction() {
+	t.transaction = &transaction{transport: t, in: []pgproto3.FrontendMessage{}, out: []Message{}}
 }
 
 func (t *Transport) endTransaction() (err error) {
@@ -81,15 +81,15 @@ func (t *Transport) endTransaction() (err error) {
 // Read reads and returns a single message from the connection.
 // Read expects to be called only after a call to StartUp without an error response
 // otherwise, an error is returned
-func (t *Transaction) Read() (msg Message, err error) {
-	return p.read()
+func (t *Transport) Read() (msg Message, err error) {
+	return t.read()
 }
 
 // NextFrontendMessage reads and returns a single message from the connection.
 // NextFrontendMessage expects to be called only after a call to StartUp without an error response
 // otherwise, an error is returned
 func (t *Transport) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
-	if p.transaction != nil {
+	if t.transaction != nil {
 		msg, err = t.transaction.NextFrontendMessage()
 	} else {
 		if !t.initialized {
