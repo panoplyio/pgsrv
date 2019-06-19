@@ -27,7 +27,7 @@ type transaction struct {
 	out       []Message                  // TODO: add size limit
 }
 
-// NextFrontendMessage uses Protocol to read the next message into the transaction's incoming messages buffer
+// NextFrontendMessage uses Transport to read the next message into the transaction's incoming messages buffer
 func (t *transaction) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
 	if msg, err = t.transport.readFrontendMessage(); err == nil {
 		t.in = append(t.in, msg)
