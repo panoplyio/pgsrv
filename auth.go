@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"crypto/rand"
 	"fmt"
+	"github.com/panoplyio/pgsrv/protocol"
 )
 
 const errExpectedPassword = "expected password response, got message type %q"
@@ -13,29 +14,21 @@ const errWrongPassword = "password does not match for user \"%s\""
 // authenticator interface defines objects able to perform user authentication
 // that happens at the very beginning of every session.
 type authenticator interface {
-	// authenticate accepts a msgReadWriter instance and a map of args that describe
+	// authenticate accepts a protocol.MessageReadWriter instance and a map of args that describe
 	// the current session. It returns no error if the authentication succeeds,
 	// or an error if something fails.
 	//
 	// Authentication errors as well as welcome messages are sent by this function,
 	// so there is no need for the caller to send these. It is caller's responsibility
 	// though to terminate the session in case that an error is returned.
-	authenticate(rw msgReadWriter, args map[string]interface{}) error
+	authenticate(rw protocol.MessageReadWriter, args map[string]interface{}) error
 }
 
 // noPasswordAuthenticator responds with auth OK immediately.
 type noPasswordAuthenticator struct{}
 
-func (np *noPasswordAuthenticator) authenticate(rw msgReadWriter, args map[string]interface{}) error {
+func (np *noPasswordAuthenticator) authenticate(rw protocol.MessageReadWriter, args map[string]interface{}) error {
 	return rw.Write(authOKMsg())
-}
-
-// messageReadWriter describes objects that handle client-server communication.
-// Objects implementing this interface are used to send password requests to users,
-// and receive their responses.
-type msgReadWriter interface {
-	Write(m msg) error
-	Read() (msg, error)
 }
 
 // AuthType represents various types of authentication
@@ -97,9 +90,9 @@ type clearTextAuthenticator struct {
 	pp PasswordProvider
 }
 
-func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]interface{}) error {
+func (a *clearTextAuthenticator) authenticate(rw protocol.MessageReadWriter, args map[string]interface{}) error {
 	// AuthenticationClearText
-	passwordRequest := msg{
+	passwordRequest := protocol.Message{
 		'R',
 		0, 0, 0, 8, // length
 		0, 0, 0, 3, // clear text auth type
@@ -118,7 +111,7 @@ func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]
 	if m.Type() != 'p' {
 		err = fmt.Errorf(errExpectedPassword, m.Type())
 		err = WithSeverity(fromErr(err), fatalSeverity)
-		rw.Write(errMsg(err))
+		rw.Write(protocol.ErrorResponse(err))
 		return err
 	}
 
@@ -129,7 +122,7 @@ func (a *clearTextAuthenticator) authenticate(rw msgReadWriter, args map[string]
 	if !bytes.Equal(expectedPassword, actualPassword) {
 		err = fmt.Errorf(errWrongPassword, user)
 		err = WithSeverity(fromErr(err), fatalSeverity)
-		rw.Write(errMsg(err))
+		rw.Write(protocol.ErrorResponse(err))
 		return err
 	}
 
@@ -143,9 +136,9 @@ type md5Authenticator struct {
 	pp PasswordProvider
 }
 
-func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interface{}) error {
+func (a *md5Authenticator) authenticate(rw protocol.MessageReadWriter, args map[string]interface{}) error {
 	// AuthenticationMD5Password
-	passwordRequest := msg{
+	passwordRequest := protocol.Message{
 		'R',
 		0, 0, 0, 12, // length
 		0, 0, 0, 5, // md5 auth type
@@ -166,7 +159,7 @@ func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interf
 	if m.Type() != 'p' {
 		err = fmt.Errorf(errExpectedPassword, m.Type())
 		err = WithSeverity(fromErr(err), fatalSeverity)
-		rw.Write(errMsg(err))
+		rw.Write(protocol.ErrorResponse(err))
 		return err
 	}
 
@@ -179,7 +172,7 @@ func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interf
 	if !bytes.Equal(expectedHash, actualHash) {
 		err = fmt.Errorf(errWrongPassword, user)
 		err = WithSeverity(fromErr(err), fatalSeverity)
-		rw.Write(errMsg(err))
+		rw.Write(protocol.ErrorResponse(err))
 		return err
 	}
 
@@ -187,7 +180,7 @@ func (a *md5Authenticator) authenticate(rw msgReadWriter, args map[string]interf
 }
 
 // authOKMsg returns a message that indicates that the client is now authenticated.
-func authOKMsg() msg {
+func authOKMsg() protocol.Message {
 	return []byte{'R', 0, 0, 0, 8, 0, 0, 0, 0}
 }
 
@@ -200,7 +193,7 @@ func getRandomSalt() []byte {
 
 // extractPassword extracts the password from a provided 'p' message.
 // It assumes that the message is valid.
-func extractPassword(m msg) []byte {
+func extractPassword(m protocol.Message) []byte {
 	// password starts after the size (4 bytes) and lasts until null-terminator
 	return m[5 : len(m)-1]
 }
