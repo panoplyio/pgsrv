@@ -76,3 +76,7 @@ func (s *server) Serve(conn net.Conn) error {
 	}
 	return err
 }
+
+func (s *server) authenticate(sess *session, args map[string]interface{}) error {
+	return s.authenticator.authenticate(sess, args)
+}
