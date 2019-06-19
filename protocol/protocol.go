@@ -41,7 +41,7 @@ func (p *Protocol) StartUp() (Message, error) {
 			return nil, err
 		}
 
-		msg, err = p.Read()
+		msg, err = p.read()
 		if err != nil {
 			return nil, err
 		}
