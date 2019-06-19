@@ -7,18 +7,18 @@ import (
 	"io"
 )
 
-// NewProtocol creates a protocol
-func NewProtocol(r io.Reader, w io.Writer) *Protocol {
+// NewTransport creates a protocol
+func NewTransport(r io.Reader, w io.Writer) *Transport {
 	backend, _ := pgproto3.NewBackend(r, nil)
-	return &Protocol{
-		R:       r,
-		W:       w,
+	return &Transport{
+		R: r,
+		W: w,
 		backend: backend,
 	}
 }
 
-// Protocol manages the underlying wire protocol between backend and frontend.
-type Protocol struct {
+// Transport manages the underlying wire protocol between backend and frontend.
+type Transport struct {
 	R           io.Reader
 	W           io.Writer
 	backend     *pgproto3.Backend
@@ -27,9 +27,9 @@ type Protocol struct {
 }
 
 // StartUp handles the very first messages exchange between frontend and backend of new session
-func (p *Protocol) StartUp() (Message, error) {
+func (t *Transport) StartUp() (Message, error) {
 	// read the initial connection startup message
-	raw, err := p.readBody()
+	raw, err := t.readBody()
 	if err != nil {
 		return nil, err
 	}
@@ -42,12 +42,12 @@ func (p *Protocol) StartUp() (Message, error) {
 
 	if msg.IsTLSRequest() {
 		// currently we don't support TLS.
-		err := p.Write(TLSResponse(false))
+		err := t.Write(TLSResponse(false))
 		if err != nil {
 			return nil, err
 		}
 
-		raw, err := p.readBody()
+		raw, err := t.readBody()
 		if err != nil {
 			return nil, err
 		}
@@ -63,81 +63,81 @@ func (p *Protocol) StartUp() (Message, error) {
 		return nil, fmt.Errorf("unsupported protocol version %s", v)
 	}
 
-	p.initialized = true
+	t.initialized = true
 
 	return msg, nil
 }
 
 func (p *Protocol) beginTransaction() {
-	p.transaction = &transaction{p: p, in: []pgproto3.FrontendMessage{}, out: []Message{}}
+	p.transaction = &transaction{transport: t, in: []pgproto3.FrontendMessage{}, out: []Message{}}
 }
 
-func (p *Protocol) endTransaction() (err error) {
-	err = p.transaction.flush()
-	p.transaction = nil
+func (t *Transport) endTransaction() (err error) {
+	err = t.transaction.flush()
+	t.transaction = nil
 	return
 }
 
 // Read reads and returns a single message from the connection.
 // Read expects to be called only after a call to StartUp without an error response
 // otherwise, an error is returned
-func (p *Protocol) Read() (msg Message, err error) {
+func (t *Transaction) Read() (msg Message, err error) {
 	return p.read()
 }
 
 // NextFrontendMessage reads and returns a single message from the connection.
 // NextFrontendMessage expects to be called only after a call to StartUp without an error response
 // otherwise, an error is returned
-func (p *Protocol) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
+func (t *Transport) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
 	if p.transaction != nil {
-		msg, err = p.transaction.NextFrontendMessage()
+		msg, err = t.transaction.NextFrontendMessage()
 	} else {
-		if !p.initialized {
-			err = fmt.Errorf("protocol not yet initialized")
+		if !t.initialized {
+			err = fmt.Errorf("transport not yet initialized")
 			return
 		}
-		err = p.Write(ReadyForQuery)
+		err = t.Write(ReadyForQuery)
 		if err != nil {
 			return
 		}
-		msg, err = p.readFrontendMessage()
+		msg, err = t.readFrontendMessage()
 	}
 	if err != nil {
 		return
 	}
 
-	if p.transaction == nil {
+	if t.transaction == nil {
 		switch msg.(type) {
 		case *pgproto3.Parse, *pgproto3.Bind:
-			p.beginTransaction()
+			t.beginTransaction()
 		}
 	} else {
 		switch msg.(type) {
 		case *pgproto3.Query, *pgproto3.Sync:
-			err = p.endTransaction()
+			err = t.endTransaction()
 		}
 	}
 
 	return
 }
 
-func (p *Protocol) readFrontendMessage() (pgproto3.FrontendMessage, error) {
-	return p.backend.Receive()
+func (t *Transport) readFrontendMessage() (pgproto3.FrontendMessage, error) {
+	return t.backend.Receive()
 }
 
-func (p *Protocol) read() (Message, error) {
+func (t *Transport) read() (Message, error) {
 	typeChar := make([]byte, 1)
 
-	if p.initialized {
+	if t.initialized {
 		// we've already started up, so all future messages are MUST start with
 		// a single-byte type identifier.
-		_, err := p.R.Read(typeChar)
+		_, err := t.R.Read(typeChar)
 		if err != nil {
 			return nil, err
 		}
 	}
 	// read the actual body of the message
-	msg, err := p.readBody()
+	msg, err := t.readBody()
 	if err != nil {
 		return nil, err
 	}
@@ -163,12 +163,11 @@ func (p *Protocol) read() (Message, error) {
 // readBody reads the body of the next message in the connection. The body is
 // comprised of an Int32 body-length (N), inclusive of the length itself
 // followed by N-bytes of the actual body.
-func (p *Protocol) readBody() ([]byte, error) {
-
+func (t *Transport) readBody() ([]byte, error) {
 	// messages starts with an Int32 Length of message contents in bytes,
 	// including self.
 	lenBytes := make([]byte, 4)
-	_, err := io.ReadFull(p.R, lenBytes)
+	_, err := io.ReadFull(t.R, lenBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +177,7 @@ func (p *Protocol) readBody() ([]byte, error) {
 
 	// read the remaining bytes in the message
 	msg := make([]byte, length)
-	_, err = io.ReadFull(p.R, msg[4:]) // keep 4 bytes for the length
+	_, err = io.ReadFull(t.R, msg[4:]) // keep 4 bytes for the length
 	if err != nil {
 		return nil, err
 	}
@@ -190,14 +189,14 @@ func (p *Protocol) readBody() ([]byte, error) {
 }
 
 // Write writes the provided message to the client connection
-func (p *Protocol) Write(m Message) error {
-	if p.transaction != nil {
-		return p.transaction.Write(m)
+func (t *Transport) Write(m Message) error {
+	if t.transaction != nil {
+		return t.transaction.Write(m)
 	}
-	return p.write(m)
+	return t.write(m)
 }
 
-func (p *Protocol) write(m Message) error {
-	_, err := p.W.Write(m)
+func (t *Transport) write(m Message) error {
+	_, err := t.W.Write(m)
 	return err
 }

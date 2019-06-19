@@ -14,11 +14,10 @@ import (
 )
 
 func TestProtocol_StartUp(t *testing.T) {
-
 	t.Run("supported protocol version", func(t *testing.T) {
 		buf := bytes.Buffer{}
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
-		p := &Protocol{W: comm, R: comm}
+		p := &Transport{W: comm, R: comm}
 
 		_, err := comm.Write([]byte{
 			0, 0, 0, 8, // length
@@ -35,10 +34,9 @@ func TestProtocol_StartUp(t *testing.T) {
 	})
 
 	t.Run("unsupported protocol version", func(t *testing.T) {
-
 		buf := bytes.Buffer{}
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
-		p := &Protocol{W: comm, R: comm}
+		p := &Transport{W: comm, R: comm}
 
 		_, err := comm.Write([]byte{
 			0, 0, 0, 8, // length
@@ -52,9 +50,7 @@ func TestProtocol_StartUp(t *testing.T) {
 
 		_, err = p.StartUp()
 		require.Error(t, err, "expected error of unsupported version. got none")
-
 	})
-
 }
 
 func runStory(t *testing.T, conn io.ReadWriter, steps []pgstories.Step) error {
@@ -83,15 +79,13 @@ func runStory(t *testing.T, conn io.ReadWriter, steps []pgstories.Step) error {
 }
 
 func TestProtocol_Read(t *testing.T) {
-
 	t.Run("standard message flow", func(t *testing.T) {
-
 		f, b := net.Pipe()
 
 		frontend, err := pgproto3.NewFrontend(f, f)
 		require.NoError(t, err)
 
-		p := NewProtocol(b, b)
+		p := NewTransport(b, b)
 		p.initialized = true
 
 		msg := make(chan pgproto3.FrontendMessage)
@@ -115,16 +109,13 @@ func TestProtocol_Read(t *testing.T) {
 			"expected protocol to identify sent message as type %T. actual: %T", &pgproto3.Query{}, res)
 
 		require.Nil(t, p.transaction, "expected protocol not to start transaction")
-
 	})
 
 	t.Run("extended query message flow", func(t *testing.T) {
-
 		t.Run("starts transaction", func(t *testing.T) {
-
 			f, b := net.Pipe()
 
-			p := NewProtocol(b, b)
+			p := NewTransport(b, b)
 			p.initialized = true
 
 			go func() {
@@ -142,14 +133,12 @@ func TestProtocol_Read(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NotNil(t, p.transaction, "expected protocol to start transaction")
-
 		})
 
 		t.Run("ends transaction", func(t *testing.T) {
-
 			f, b := net.Pipe()
 
-			p := NewProtocol(b, b)
+			p := NewTransport(b, b)
 			p.initialized = true
 
 			go func() {
@@ -180,10 +169,7 @@ func TestProtocol_Read(t *testing.T) {
 
 			require.NoError(t, err)
 
-			require.Nil(t, p.transaction, "expected protocol not to end transaction")
-
+			require.Nil(t, p.transaction, "expected protocol to end transaction")
 		})
-
 	})
-
 }
