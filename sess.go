@@ -72,7 +72,7 @@ func (s *session) Serve() error {
 		return err
 	}
 
-	err = t.Write(protocol.ParameterStatus("client_encoding", "utf8"))
+	err = t.Write(protocol.ParameterStatus("client_encoding", "UTF8"))
 	if err != nil {
 		return err
 	}
