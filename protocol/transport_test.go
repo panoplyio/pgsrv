@@ -134,7 +134,6 @@ func TestProtocol_Read(t *testing.T) {
 		})
 
 		t.Run("ends transaction", func(t *testing.T) {
-
 			f, b := net.Pipe()
 
 			p := NewTransport(b, b)
