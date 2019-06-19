@@ -41,7 +41,7 @@ func (t *Transport) StartUp() (Message, error) {
 			return nil, err
 		}
 
-		msg, err = t.Read()
+		msg, err = t.read()
 		if err != nil {
 			return nil, err
 		}
