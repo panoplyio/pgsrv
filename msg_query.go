@@ -1,4 +1,4 @@
-package protocol
+package pgsrv
 
 import (
 	"encoding/binary"
@@ -29,21 +29,18 @@ var TypesOid = map[string]int{
 	"ANY":        2276,
 }
 
-// ReadyForQuery is sent whenever the backend is ready for a new query cycle.
-var ReadyForQuery = []byte{'Z', 0, 0, 0, 5, 'I'}
-
 // QueryText returns the SQL query string from a Query or Parse message
-func (m Message) QueryText() (string, error) {
-	if m.Type() != Query {
+func (m msg) QueryText() (string, error) {
+	if m.Type() != 'Q' {
 		return "", fmt.Errorf("not a query message: %q", m.Type())
 	}
 
 	return string(m[5:]), nil
 }
 
-// RowDescription is a message indicating that DataRow messages are about to
+// RowDescriptionMsg is a message indicating that DataRow messages are about to
 // be transmitted and delivers their schema (column names/types)
-func RowDescription(cols, types []string) Message {
+func rowDescriptionMsg(cols, types []string) msg {
 	msg := []byte{'T' /* LEN = */, 0, 0, 0, 0 /* NUM FIELDS = */, 0, 0}
 	binary.BigEndian.PutUint16(msg[5:], uint16(len(cols)))
 
@@ -73,8 +70,7 @@ func RowDescription(cols, types []string) Message {
 	return msg
 }
 
-// DataRow is sent for every row of resulted row set
-func DataRow(vals []string) Message {
+func dataRowMsg(vals []string) msg {
 	msg := []byte{'D' /* LEN = */, 0, 0, 0, 0 /* NUM VALS = */, 0, 0}
 	binary.BigEndian.PutUint16(msg[5:], uint16(len(vals)))
 
@@ -89,8 +85,7 @@ func DataRow(vals []string) Message {
 	return msg
 }
 
-// CommandComplete is sent when query was fully executed and cursor reached the end of the row set
-func CommandComplete(tag string) Message {
+func completeMsg(tag string) msg {
 	msg := []byte{'C', 0, 0, 0, 0}
 	msg = append(msg, []byte(tag)...)
 	msg = append(msg, 0) // NULL TERMINATED
@@ -100,8 +95,7 @@ func CommandComplete(tag string) Message {
 	return msg
 }
 
-// ErrorResponse is sent whenever error has occurred
-func ErrorResponse(err error) Message {
+func errMsg(err error) msg {
 	msg := []byte{'E', 0, 0, 0, 0}
 
 	// https://www.postgresql.org/docs/9.3/static/protocol-error-fields.html
@@ -162,4 +156,9 @@ func ErrorResponse(err error) Message {
 	// write the length
 	binary.BigEndian.PutUint32(msg[1:5], uint32(len(msg)-1))
 	return msg
+}
+
+// ReadyMsg is sent whenever the backend is ready for a new query cycle.
+func readyMsg() msg {
+	return []byte{'Z', 0, 0, 0, 5, 'I'}
 }
