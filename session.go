@@ -97,14 +97,14 @@ func (s *session) Serve() error {
 			return err
 		}
 
-		switch msg.(type) {
+		switch v := msg.(type) {
 		case *pgproto3.Terminate:
 			s.Conn.Close()
 			return nil // client terminated intentionally
 		case *pgproto3.Query:
 			q := &query{
 				transport: t,
-				sql:       msg.(*pgproto3.Query).String,
+				sql:       v.String,
 				queryer:   s.Server,
 				execer:    s.Server,
 			}
