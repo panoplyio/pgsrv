@@ -1,4 +1,4 @@
-package pgsrv
+package protocol
 
 import (
 	"github.com/stretchr/testify/require"
@@ -6,12 +6,12 @@ import (
 )
 
 func TestReadyMsg(t *testing.T) {
-	msg := readyMsg()
+	msg := ReadyForQuery
 	require.Equal(t, []byte{'Z', 0, 0, 0, 5, 'I'}, []byte(msg))
 }
 
 func TestCompleteMsg(t *testing.T) {
-	msg := completeMsg("meh")
+	msg := CommandComplete("meh")
 	expectedMsg := []byte{
 		'C',        // type
 		0, 0, 0, 8, // size
@@ -25,7 +25,7 @@ func TestCompleteMsg(t *testing.T) {
 func TestQueryText(t *testing.T) {
 	t.Run("not a Q", func(t *testing.T) {
 		bs := []byte{'p', 0, 0, 0, 5}
-		msg := newMsg(bs)
+		msg := Message(bs)
 
 		res, err := msg.QueryText()
 		require.EqualError(t, err, "not a query message: 'p'")
@@ -33,9 +33,9 @@ func TestQueryText(t *testing.T) {
 	})
 
 	t.Run("Q with a string", func(t *testing.T) {
-		bs := []byte{'Q', 0, 0, 0, 11}
+		bs := []byte{Query, 0, 0, 0, 11}
 		bs = append(bs, []byte("thing")...)
-		msg := newMsg(bs)
+		msg := Message(bs)
 
 		res, err := msg.QueryText()
 		require.NoError(t, err)
@@ -43,9 +43,9 @@ func TestQueryText(t *testing.T) {
 	})
 
 	t.Run("Q with an empty string", func(t *testing.T) {
-		bs := []byte{'Q', 0, 0, 0, 5}
+		bs := []byte{Query, 0, 0, 0, 5}
 		bs = append(bs, []byte("")...)
-		msg := newMsg(bs)
+		msg := Message(bs)
 
 		res, err := msg.QueryText()
 		require.NoError(t, err)

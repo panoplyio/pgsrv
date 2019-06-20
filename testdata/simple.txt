@@ -1,0 +1,7 @@
+=== simple query
+-> Q "SELECT * FROM (VALUES(1)) t"
+<- T
+<- D
+<- C
+<- Z
+===

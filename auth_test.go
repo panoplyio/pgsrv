@@ -3,11 +3,12 @@ package pgsrv
 import (
 	"bytes"
 	"crypto/md5"
+	"github.com/panoplyio/pgsrv/protocol"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
-var authOKMessage = msg{'R', 0, 0, 0, 8, 0, 0, 0, 0}
+var authOKMessage = protocol.Message{'R', 0, 0, 0, 8, 0, 0, 0, 0}
 var fatalMarker = []byte{
 	83, 70, 65, 84, 65, 76,
 }
@@ -20,7 +21,7 @@ func TestAuthOKMsg(t *testing.T) {
 }
 
 func TestNoPassword_authenticate(t *testing.T) {
-	rw := &mockMessageReadWriter{output: []msg{}}
+	rw := &mockMessageReadWriter{output: []protocol.Message{}}
 	args := map[string]interface{}{
 		"user": "this-is-user",
 	}
@@ -29,21 +30,21 @@ func TestNoPassword_authenticate(t *testing.T) {
 	err := np.authenticate(rw, args)
 
 	require.NoError(t, err)
-	require.Equal(t, []msg{authOKMessage}, rw.messages)
+	require.Equal(t, []protocol.Message{authOKMessage}, rw.messages)
 }
 
 func TestAuthenticationClearText_authenticate(t *testing.T) {
-	passwordRequest := msg{
+	passwordRequest := protocol.Message{
 		'R',
 		0, 0, 0, 8, // length
 		0, 0, 0, 3, // clear text auth type
 	}
-	passwordMessage := msg{
+	passwordMessage := protocol.Message{
 		'p',
 		0, 0, 0, 8,
 		109, 101, 104, 0, // 'meh'
 	}
-	rw := &mockMessageReadWriter{output: []msg{passwordMessage}}
+	rw := &mockMessageReadWriter{output: []protocol.Message{passwordMessage}}
 	args := map[string]interface{}{
 		"user": "this-is-user",
 	}
@@ -56,7 +57,7 @@ func TestAuthenticationClearText_authenticate(t *testing.T) {
 		err := a.authenticate(rw, args)
 
 		require.NoError(t, err)
-		expectedMessages := []msg{
+		expectedMessages := []protocol.Message{
 			passwordRequest,
 			authOKMessage,
 		}
@@ -75,7 +76,7 @@ func TestAuthenticationClearText_authenticate(t *testing.T) {
 
 	t.Run("invalid message type", func(t *testing.T) {
 		defer rw.Reset()
-		rw = &mockMessageReadWriter{output: []msg{
+		rw = &mockMessageReadWriter{output: []protocol.Message{
 			{'q', 0, 0, 0, 5, 1},
 		}}
 		err := a.authenticate(rw, args)
@@ -87,7 +88,7 @@ func TestAuthenticationClearText_authenticate(t *testing.T) {
 }
 
 func TestAuthenticationMD5_authenticate(t *testing.T) {
-	passwordRequest := msg{
+	passwordRequest := protocol.Message{
 		'R',
 		0, 0, 0, 12, // length
 		0, 0, 0, 5, // md5 auth type
@@ -125,7 +126,7 @@ func TestAuthenticationMD5_authenticate(t *testing.T) {
 
 	t.Run("invalid message type", func(t *testing.T) {
 		defer rw.Reset()
-		rw := &mockMessageReadWriter{output: []msg{
+		rw := &mockMessageReadWriter{output: []protocol.Message{
 			{'q', 0, 0, 0, 5, 1},
 		}}
 		err := a.authenticate(rw, args)
@@ -166,7 +167,7 @@ func TestGetRandomSalt(t *testing.T) {
 
 func TestExtractPassword(t *testing.T) {
 	t.Run("regular password", func(t *testing.T) {
-		passwordMessage := msg{
+		passwordMessage := protocol.Message{
 			'p',
 			0, 0, 0, 9,
 			42, 42, 42, 42,
@@ -179,7 +180,7 @@ func TestExtractPassword(t *testing.T) {
 	})
 
 	t.Run("empty password", func(t *testing.T) {
-		passwordMessage := msg{
+		passwordMessage := protocol.Message{
 			'p',
 			0, 0, 0, 5,
 			0,
@@ -194,22 +195,22 @@ func TestExtractPassword(t *testing.T) {
 // mockMessageReadWriter implements messageReadWriter and outputs the provided output
 // message by message, looped.
 type mockMessageReadWriter struct {
-	output        []msg
+	output        []protocol.Message
 	currentOutput int
-	messages      []msg
+	messages      []protocol.Message
 }
 
-func (rw *mockMessageReadWriter) Read() (msg, error) {
+func (rw *mockMessageReadWriter) Read() (protocol.Message, error) {
 	return rw.output[rw.currentOutput%len(rw.output)], nil
 }
 
-func (rw *mockMessageReadWriter) Write(m msg) error {
+func (rw *mockMessageReadWriter) Write(m protocol.Message) error {
 	rw.messages = append(rw.messages, m)
 	return nil
 }
 
 func (rw *mockMessageReadWriter) Reset() {
-	rw.messages = make([]msg, 0)
+	rw.messages = make([]protocol.Message, 0)
 }
 
 // mockMD5MessageReadWriter implements messageReadWriter and outputs password
@@ -218,11 +219,11 @@ type mockMD5MessageReadWriter struct {
 	user     string
 	pass     []byte
 	salt     []byte
-	messages []msg
+	messages []protocol.Message
 }
 
-func (rw *mockMD5MessageReadWriter) Read() (msg, error) {
-	message := msg{
+func (rw *mockMD5MessageReadWriter) Read() (protocol.Message, error) {
+	message := protocol.Message{
 		'p',
 		0, 0, 0, 25,
 	}
@@ -232,12 +233,12 @@ func (rw *mockMD5MessageReadWriter) Read() (msg, error) {
 	return message, nil
 }
 
-func (rw *mockMD5MessageReadWriter) Write(m msg) error {
+func (rw *mockMD5MessageReadWriter) Write(m protocol.Message) error {
 	rw.salt = m[9:]
 	rw.messages = append(rw.messages, m)
 	return nil
 }
 
 func (rw *mockMD5MessageReadWriter) Reset() {
-	rw.messages = make([]msg, 0)
+	rw.messages = make([]protocol.Message, 0)
 }
