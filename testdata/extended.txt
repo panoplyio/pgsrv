@@ -1,0 +1,236 @@
+=== bind after parse
+-> P "" "SELECT * FROM (VALUES($1)) t" [0]
+-> D S ""
+-> S
+<- 1
+<- t
+<- T
+<- Z
+-> B "" "" [baa]
+-> D P "",
+-> P "" "SELECT * FROM (VALUES($1)) t" [0],
+-> B "" "" [baa]
+-> E "" 0
+-> S
+<- 2
+<- T
+<- 1
+<- 2
+<- D
+<- C
+<- Z
+===
+
+=== parse after bind erases portal
+-> P "" "SELECT * FROM (VALUES($1)) t" [0]
+-> D S ""
+-> S
+<- 1
+<- t
+<- T
+<- Z
+-> B "" "" [baa]
+-> D P ""
+-> S
+<- 2
+<- T
+<- Z
+-> P "" "SELECT * FROM (VALUES($1), ($1)) t" [0]
+-> S
+<- 1
+<- Z
+-> E "" 0
+-> S
+<- E "34000"
+<- Z
+===
+
+=== parse after execute uses same ended portal
+-> P "" "SELECT * FROM (VALUES($1)) t" [0]
+-> D S ""
+-> S
+<- 1
+<- t
+<- T
+<- Z
+-> B "" "" [baa]
+-> D P ""
+-> E "" 0
+-> P "" "SELECT * FROM (VALUES($1), ($1)) t" [0]
+-> E "" 0
+-> S
+<- 2
+<- T
+<- D
+<- C
+<- 1
+<- C
+<- Z
+===
+
+
+=== re-bind after execute creates new portal
+-> P "" "SELECT * FROM (VALUES($1)) t" [0]
+-> D S ""
+-> S
+<- 1
+<- t
+<- T
+<- Z
+
+-> B "" "" [baa]
+-> D P ""
+-> E "" 0
+-> B "" "" [baa]
+-> E "" 0
+-> S
+<- 2
+<- T
+<- D
+<- C
+<- 2
+<- D
+<- C
+<- Z
+===
+
+=== bind without parse
+-> B "" "" [baa]
+-> E "" 0
+-> S
+<- E "26000"
+<- Z
+===
+
+
+=== bind unnamed stmt after sync
+-> P "" "SELECT * FROM (VALUES($1)) t" [0]
+-> S
+<- 1
+<- Z
+-> B "" "" [baa]
+-> E "" 0
+-> S
+<- 2
+<- D
+<- C
+<- Z
+===
+
+
+=== bind after simple query
+-> P "" "SELECT * FROM (VALUES($1)) t" [0]
+-> Q "SELECT 1;"
+<- 1
+<- T
+<- D
+<- C
+<- Z
+-> B "" "" [baa]
+-> E "" 0
+-> S
+<- E "26000"
+<- Z
+===
+
+
+=== bind after sync then simple query
+-> P "" "SELECT * FROM (VALUES($1)) t" [0]
+-> S
+<- 1
+<- Z
+-> Q "SELECT 1;"
+-> B "" "" [baa]
+-> S
+<- T
+<- D
+<- C
+<- Z
+<- E "26000"
+<- Z
+===
+
+
+=== bind unnamed stmt after sync then simple query
+
+-> P "" "SELECT * FROM (VALUES($1)) t" [0]
+-> Q "SELECT 1;"
+<- 1
+<- T
+<- D
+<- C
+<- Z
+-> B "" "" [baa]
+-> E "" 0
+-> S
+<- E "26000"
+<- Z
+
+===
+
+
+=== bind named stmt after simple query
+-> P "stmt_name" "SELECT * FROM (VALUES($1)) t" [0]
+-> Q "SELECT 1;"
+<- 1
+<- T
+<- D
+<- C
+<- Z
+-> D S "stmt_name"
+-> B "" "stmt_name" [baa]
+-> E "" 0
+-> S
+<- t
+<- T
+<- 2
+<- D
+<- C
+<- Z
+===
+
+
+=== execute named portal
+-> P "stmt_name" "SELECT * FROM (VALUES($1)) t" [0]
+-> B "portal_name" "stmt_name" [baa]
+-> E "portal_name" 0
+-> S
+<- 1
+<- 2
+<- D
+<- C
+<- Z
+===
+
+
+=== execute named portal after sync
+-> P "stmt_name" "SELECT * FROM (VALUES($1)) t" [0]
+-> S
+<- 1
+<- Z
+-> B "portal_name" "stmt_name" [baa]
+-> S
+<- 2
+<- Z
+-> E "portal_name" 0
+-> S
+<- E "34000"
+<- Z
+===
+
+
+=== multiple executes
+-> P "" "SELECT * FROM (VALUES($1), ($1)) t" [0]
+-> B "" "" [baa]
+-> E "" 1
+-> E "" 1
+-> S
+-> H
+<- 1
+<- 2
+<- D
+<- s
+<- D
+<- s
+<- Z
+===
