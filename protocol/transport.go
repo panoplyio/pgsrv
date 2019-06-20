@@ -71,14 +71,14 @@ func (t *Transport) endTransaction() (err error) {
 	return
 }
 
-// WaitForMessage reads and returns a single message from the connection when available.
+// NextMessage reads and returns a single message from the connection when available.
 // if within a transaction, the transaction will read from the connection,
 // otherwise a ReadyForQuery message will first be sent to the frontend and then reading
 // a single message from the connection will happen
 //
-// WaitForMessage expects to be called only after a call to StartUp without an error response
+// NextMessage expects to be called only after a call to StartUp without an error response
 // otherwise, an error is returned
-func (t *Transport) WaitForMessage() (msg Message, err error) {
+func (t *Transport) NextMessage() (msg Message, err error) {
 	if !t.initialized {
 		err = fmt.Errorf("transport not yet initialized")
 		return
@@ -86,6 +86,7 @@ func (t *Transport) WaitForMessage() (msg Message, err error) {
 	if t.transaction != nil {
 		msg, err = t.transaction.Read()
 	} else {
+		// when not in transaction, client waits for ReadyForQuery before sending next message
 		err = t.Write(ReadyForQuery)
 		if err != nil {
 			return

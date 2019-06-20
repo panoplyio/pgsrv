@@ -90,7 +90,7 @@ func TestProtocol_Read(t *testing.T) {
 
 		msg := make(chan Message)
 		go func() {
-			m, err := transport.WaitForMessage()
+			m, err := transport.NextMessage()
 			require.NoError(t, err)
 
 			msg <- m
@@ -118,7 +118,7 @@ func TestProtocol_Read(t *testing.T) {
 
 			go func() {
 				for {
-					_, err := transport.WaitForMessage()
+					_, err := transport.NextMessage()
 					require.NoError(t, err)
 				}
 			}()
@@ -141,7 +141,7 @@ func TestProtocol_Read(t *testing.T) {
 
 			go func() {
 				for {
-					m, err := transport.WaitForMessage()
+					m, err := transport.NextMessage()
 					require.NoError(t, err)
 
 					switch m.Type() {
