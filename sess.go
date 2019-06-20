@@ -91,7 +91,7 @@ func (s *session) Serve() error {
 
 	// query-cycle
 	for {
-		msg, err = t.Read()
+		msg, err = t.WaitForMessage()
 		if err != nil {
 			return err
 		}
