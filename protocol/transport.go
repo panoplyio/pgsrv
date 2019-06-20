@@ -11,9 +11,9 @@ import (
 func NewTransport(r io.Reader, w io.Writer) *Transport {
 	backend, _ := pgproto3.NewBackend(r, nil)
 	return &Transport{
-		R:       r,
-		W:       w,
-		backend: backend,
+		R:           r,
+		W:           w,
+		frontReader: backend,
 	}
 }
 
@@ -21,7 +21,7 @@ func NewTransport(r io.Reader, w io.Writer) *Transport {
 type Transport struct {
 	R           io.Reader
 	W           io.Writer
-	backend     *pgproto3.Backend
+	frontReader *pgproto3.Backend
 	initialized bool
 	transaction *transaction
 }
@@ -120,7 +120,7 @@ func (t *Transport) NextMessage() (msg pgproto3.FrontendMessage, err error) {
 }
 
 func (t *Transport) readFrontendMessage() (pgproto3.FrontendMessage, error) {
-	return t.backend.Receive()
+	return t.frontReader.Receive()
 }
 
 // Read reads and returns a single message from the connection.
