@@ -85,12 +85,12 @@ func TestProtocol_Read(t *testing.T) {
 		frontend, err := pgproto3.NewFrontend(f, f)
 		require.NoError(t, err)
 
-		p := NewTransport(b, b)
-		p.initialized = true
+		transport := NewTransport(b, b)
+		transport.initialized = true
 
 		msg := make(chan pgproto3.FrontendMessage)
 		go func() {
-			m, err := p.NextFrontendMessage()
+			m, err := transport.NextMessage()
 			require.NoError(t, err)
 
 			msg <- m
@@ -108,19 +108,19 @@ func TestProtocol_Read(t *testing.T) {
 		require.IsTypef(t, &pgproto3.Query{}, res,
 			"expected protocol to identify sent message as type %T. actual: %T", &pgproto3.Query{}, res)
 
-		require.Nil(t, p.transaction, "expected protocol not to start transaction")
+		require.Nil(t, transport.transaction, "expected protocol not to start transaction")
 	})
 
 	t.Run("extended query message flow", func(t *testing.T) {
 		t.Run("starts transaction", func(t *testing.T) {
 			f, b := net.Pipe()
 
-			p := NewTransport(b, b)
-			p.initialized = true
+			transport := NewTransport(b, b)
+			transport.initialized = true
 
 			go func() {
 				for {
-					_, err := p.NextFrontendMessage()
+					_, err := transport.NextMessage()
 					require.NoError(t, err)
 				}
 			}()
@@ -132,26 +132,26 @@ func TestProtocol_Read(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			require.NotNil(t, p.transaction, "expected protocol to start transaction")
+			require.NotNil(t, transport.transaction, "expected protocol to start transaction")
 		})
 
 		t.Run("ends transaction", func(t *testing.T) {
 			f, b := net.Pipe()
 
-			p := NewTransport(b, b)
-			p.initialized = true
+			transport := NewTransport(b, b)
+			transport.initialized = true
 
 			go func() {
 				for {
-					m, err := p.NextFrontendMessage()
+					m, err := transport.NextMessage()
 					require.NoError(t, err)
 
 					err = nil
 					switch m.(type) {
 					case *pgproto3.Parse:
-						err = p.Write(ParseComplete)
+						err = transport.Write(ParseComplete)
 					case *pgproto3.Bind:
-						err = p.Write(BindComplete)
+						err = transport.Write(BindComplete)
 					}
 					require.NoError(t, err)
 				}
@@ -169,7 +169,7 @@ func TestProtocol_Read(t *testing.T) {
 
 			require.NoError(t, err)
 
-			require.Nil(t, p.transaction, "expected protocol to end transaction")
+			require.Nil(t, transport.transaction, "expected protocol to end transaction")
 		})
 	})
 }

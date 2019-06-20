@@ -92,7 +92,7 @@ func (s *session) Serve() error {
 
 	// query-cycle
 	for {
-		msg, err := t.NextFrontendMessage()
+		msg, err = t.NextMessage()
 		if err != nil {
 			return err
 		}
