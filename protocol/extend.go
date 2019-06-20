@@ -27,7 +27,7 @@ type transaction struct {
 
 // Read uses Transport to read the next message into the transaction's incoming messages buffer
 func (t *transaction) Read() (msg Message, err error) {
-	if msg, err = t.transport.read(); err == nil {
+	if msg, err = t.transport.Read(); err == nil {
 		t.in = append(t.in, msg)
 	}
 	return
