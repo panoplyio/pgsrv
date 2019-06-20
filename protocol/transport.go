@@ -98,7 +98,7 @@ func (t *Transport) NextMessage() (msg pgproto3.FrontendMessage, err error) {
 		if err != nil {
 			return
 		}
-		msg, err = t.backend.Receive()
+		msg, err = t.readFrontendMessage()
 	}
 	if err != nil {
 		return
@@ -119,6 +119,9 @@ func (t *Transport) NextMessage() (msg pgproto3.FrontendMessage, err error) {
 	return
 }
 
+func (t *Transport) readFrontendMessage() (pgproto3.FrontendMessage, error) {
+	return t.backend.Receive()
+}
 
 // Read reads and returns a single message from the connection.
 func (t *Transport) Read() (Message, error) {
