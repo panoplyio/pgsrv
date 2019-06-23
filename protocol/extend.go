@@ -12,14 +12,14 @@ var BindComplete = []byte{'2', 0, 0, 0, 4}
 // that apply only on commit. the purpose of transaction is to support
 // extended query flow.
 type transaction struct {
-	transport *Transport
-	in        []pgproto3.FrontendMessage // TODO: asses if we need it after implementation of prepared statements and portals is done
-	out       []Message                  // TODO: add size limit
+	handler *Handler
+	in      []pgproto3.FrontendMessage // TODO: asses if we need it after implementation of prepared statements and portals is done
+	out     []Message                  // TODO: add size limit
 }
 
-// NextFrontendMessage uses Transport to read the next message into the transaction's incoming messages buffer
+// NextFrontendMessage uses Handler to read the next message into the transaction's incoming messages buffer
 func (t *transaction) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
-	if msg, err = t.transport.readFrontendMessage(); err == nil {
+	if msg, err = t.handler.readFrontendMessage(); err == nil {
 		t.in = append(t.in, msg)
 	}
 	return
@@ -33,7 +33,7 @@ func (t *transaction) Write(msg Message) error {
 
 func (t *transaction) flush() (err error) {
 	for len(t.out) > 0 {
-		err = t.transport.write(t.out[0])
+		err = t.handler.write(t.out[0])
 		if err != nil {
 			break
 		}

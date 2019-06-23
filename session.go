@@ -27,8 +27,9 @@ type session struct {
 	initialized bool
 }
 
-func (s *session) startUp(t *protocol.Transport) error {
-	msg, err := t.StartUp()
+func (s *session) startUp() error {
+	handshake := protocol.NewHandshake(s.Conn)
+	msg, err := handshake.Init()
 	if err != nil {
 		return err
 	}
@@ -56,12 +57,12 @@ func (s *session) startUp(t *protocol.Transport) error {
 	}
 
 	// handle authentication
-	err = s.Server.authenticator.authenticate(t, s.Args)
+	err = s.Server.authenticator.authenticate(handshake, s.Args)
 	if err != nil {
 		return err
 	}
 
-	err = t.Write(protocol.ParameterStatus("client_encoding", "utf8"))
+	err = handshake.Write(protocol.ParameterStatus("client_encoding", "utf8"))
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func (s *session) startUp(t *protocol.Transport) error {
 	// notify the client of the pid and secret to be passed back when it wishes
 	// to interrupt this session
 	s.Ctx, s.CancelFunc = context.WithCancel(context.Background())
-	err = t.Write(protocol.BackendKeyData(pid, s.Secret))
+	err = handshake.Write(protocol.BackendKeyData(pid, s.Secret))
 	if err != nil {
 		return err
 	}
@@ -89,11 +90,12 @@ func (s *session) startUp(t *protocol.Transport) error {
 
 // Handle a connection session
 func (s *session) Serve() error {
-	t := protocol.NewTransport(s.Conn, s.Conn)
-	err := s.startUp(t)
+	err := s.startUp()
 	if err != nil {
 		return err
 	}
+
+	t := protocol.NewHandler(s.Conn)
 
 	// query-cycle
 	for {
@@ -108,10 +110,10 @@ func (s *session) Serve() error {
 			return nil // client terminated intentionally
 		case *pgproto3.Query:
 			q := &query{
-				transport: t,
-				sql:       v.String,
-				queryer:   s.Server,
-				execer:    s.Server,
+				handler: t,
+				sql:     v.String,
+				queryer: s.Server,
+				execer:  s.Server,
 			}
 			err = q.Run(s)
 			if err != nil {
