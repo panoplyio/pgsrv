@@ -117,7 +117,6 @@ func (p *pgStoryScriptsRunner) run(t *testing.T) {
 					p.testStory(t, story)
 				})
 			}
-
 		})
 
 		return nil
