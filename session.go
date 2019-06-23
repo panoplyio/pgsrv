@@ -18,28 +18,23 @@ var allSessions sync.Map
 // see: https://www.postgresql.org/docs/9.2/static/protocol.html
 // for postgres protocol and startup handshake process
 type session struct {
-	Server        *server
-	Conn          io.ReadWriteCloser
-	Args          map[string]interface{}
-	Secret        int32 // used for cancelling requests
-	Ctx           context.Context
-	CancelFunc    context.CancelFunc
-	initialized   bool
-	queryer       Queryer
-	authenticator authenticator
+	Server      *server
+	Conn        io.ReadWriteCloser
+	Args        map[string]interface{}
+	Secret      int32 // used for cancelling requests
+	Ctx         context.Context
+	CancelFunc  context.CancelFunc
+	initialized bool
 }
 
-// Handle a connection session
-func (s *session) Serve() error {
-	t := protocol.NewTransport(s.Conn, s.Conn)
-
-	suMsg, err := t.StartUp()
+func (s *session) startUp(t *protocol.Transport) error {
+	msg, err := t.StartUp()
 	if err != nil {
 		return err
 	}
 
-	if suMsg.IsCancel() {
-		pid, secret, err := suMsg.CancelKeyData()
+	if msg.IsCancel() {
+		pid, secret, err := msg.CancelKeyData()
 		if err != nil {
 			return err
 		}
@@ -55,7 +50,7 @@ func (s *session) Serve() error {
 		return nil // disconnect.
 	}
 
-	s.Args, err = suMsg.StartupArgs()
+	s.Args, err = msg.StartupArgs()
 	if err != nil {
 		return err
 	}
@@ -86,6 +81,16 @@ func (s *session) Serve() error {
 	// to interrupt this session
 	s.Ctx, s.CancelFunc = context.WithCancel(context.Background())
 	err = t.Write(protocol.BackendKeyData(pid, s.Secret))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Handle a connection session
+func (s *session) Serve() error {
+	t := protocol.NewTransport(s.Conn, s.Conn)
+	err := s.startUp(t)
 	if err != nil {
 		return err
 	}
