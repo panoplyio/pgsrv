@@ -13,11 +13,11 @@ import (
 	"time"
 )
 
-func TestProtocol_StartUp(t *testing.T) {
+func TestTransport_StartUp(t *testing.T) {
 	t.Run("supported protocol version", func(t *testing.T) {
 		buf := bytes.Buffer{}
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
-		p := &Transport{W: comm, R: comm}
+		transport := NewTransport(comm, comm)
 
 		_, err := comm.Write([]byte{
 			0, 0, 0, 8, // length
@@ -29,14 +29,15 @@ func TestProtocol_StartUp(t *testing.T) {
 		err = comm.Flush()
 		require.NoError(t, err)
 
-		_, err = p.StartUp()
+		_, err = transport.StartUp()
 		require.NoError(t, err)
+		require.Equal(t, true, transport.initialized)
 	})
 
 	t.Run("unsupported protocol version", func(t *testing.T) {
 		buf := bytes.Buffer{}
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
-		p := &Transport{W: comm, R: comm}
+		transport := NewTransport(comm, comm)
 
 		_, err := comm.Write([]byte{
 			0, 0, 0, 8, // length
@@ -48,7 +49,7 @@ func TestProtocol_StartUp(t *testing.T) {
 		err = comm.Flush()
 		require.NoError(t, err)
 
-		_, err = p.StartUp()
+		_, err = transport.StartUp()
 		require.Error(t, err, "expected error of unsupported version. got none")
 	})
 }
@@ -78,7 +79,7 @@ func runStory(t *testing.T, conn io.ReadWriter, steps []pgstories.Step) error {
 	return err
 }
 
-func TestProtocol_Read(t *testing.T) {
+func TestTransport_Read(t *testing.T) {
 	t.Run("standard message flow", func(t *testing.T) {
 		f, b := net.Pipe()
 
@@ -90,7 +91,7 @@ func TestProtocol_Read(t *testing.T) {
 
 		msg := make(chan pgproto3.FrontendMessage)
 		go func() {
-			m, err := transport.NextMessage()
+			m, err := transport.NextFrontendMessage()
 			require.NoError(t, err)
 
 			msg <- m
@@ -120,7 +121,7 @@ func TestProtocol_Read(t *testing.T) {
 
 			go func() {
 				for {
-					_, err := transport.NextMessage()
+					_, err := transport.NextFrontendMessage()
 					require.NoError(t, err)
 				}
 			}()
@@ -143,7 +144,7 @@ func TestProtocol_Read(t *testing.T) {
 
 			go func() {
 				for {
-					m, err := transport.NextMessage()
+					m, err := transport.NextFrontendMessage()
 					require.NoError(t, err)
 
 					err = nil
