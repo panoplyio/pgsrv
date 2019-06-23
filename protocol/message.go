@@ -2,13 +2,7 @@ package protocol
 
 // frontend message types
 const (
-	Query     = 'Q'
 	Terminate = 'X'
-	Parse     = 'P'
-	Bind      = 'B'
-	Describe  = 'D'
-	Execute   = 'E'
-	Sync      = 'S'
 )
 
 // Message is just an alias for a slice of bytes that exposes common operations on
