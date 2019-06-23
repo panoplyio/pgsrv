@@ -14,6 +14,11 @@ import (
 
 var allSessions sync.Map
 
+type portal struct {
+	srcPreparedStatement string
+	parameters           [][]byte
+}
+
 // Session represents a single client-connection, and handles all of the
 // communications with that client.
 //
@@ -27,8 +32,8 @@ type session struct {
 	Ctx         context.Context
 	CancelFunc  context.CancelFunc
 	initialized bool
-	statements    map[string]*pgx.PreparedStatement
-	portals       map[string]*portal
+	statements  map[string]*pgx.PreparedStatement
+	portals     map[string]*portal
 }
 
 func (s *session) startUp(t *protocol.Transport) error {
