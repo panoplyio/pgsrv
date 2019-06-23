@@ -1,8 +1,10 @@
 package pgsrv
 
 import (
+	"bytes"
 	"context"
 	"database/sql/driver"
+	"encoding/binary"
 	"fmt"
 	"github.com/jackc/pgx/pgproto3"
 	"github.com/lfittl/pg_query_go/nodes"
@@ -115,7 +117,6 @@ func (p *pgStoryScriptsRunner) run(t *testing.T) {
 					p.testStory(t, story)
 				})
 			}
-
 		})
 
 		return nil
@@ -202,4 +203,74 @@ func TestRealServer(t *testing.T) {
 	}
 
 	runner.run(t)
+}
+
+type mockConn struct {
+	b *bytes.Buffer
+}
+
+func (m *mockConn) Read(p []byte) (n int, err error) {
+	return m.b.Read(p)
+}
+
+func (m *mockConn) Write(p []byte) (n int, err error) {
+	return m.b.Write(p)
+}
+
+func (m *mockConn) Close() error {
+	return nil
+}
+
+func TestSession_startUp(t *testing.T) {
+	srv := server{
+		authenticator: &noPasswordAuthenticator{},
+		queryer:       &mockQueryer{},
+	}
+	buf := bytes.NewBuffer([]byte{})
+	t.Run("protocol version 3.0", func(t *testing.T) {
+		s := session{Server: &srv, Conn: &mockConn{b: buf}}
+		buf.Write([]byte{
+			0, 0, 0, 8, // length
+			0, 3, 0, 0, // 3.0
+		})
+		err := s.startUp()
+		require.NoError(t, err)
+
+		reader, err := pgproto3.NewFrontend(buf, nil)
+		require.NoError(t, err)
+
+		msg, err := reader.Receive()
+		require.NoError(t, err)
+		require.IsType(t, &pgproto3.Authentication{}, msg)
+
+		msg, err = reader.Receive()
+		require.NoError(t, err)
+		require.IsType(t, &pgproto3.ParameterStatus{}, msg)
+		require.Equal(t, "client_encoding", msg.(*pgproto3.ParameterStatus).Name)
+		require.Equal(t, "utf8", msg.(*pgproto3.ParameterStatus).Value)
+
+		msg, err = reader.Receive()
+		require.NoError(t, err)
+		require.IsType(t, &pgproto3.BackendKeyData{}, msg)
+	})
+
+	t.Run("cancel", func(t *testing.T) {
+		canceled := false
+		s := session{Server: &srv, Secret: 123, Conn: &mockConn{b: buf}, CancelFunc: func() {
+			canceled = true
+		}}
+		allSessions.Store(int32(1), &s)
+		cancelMessage := make([]byte, 16)
+		binary.BigEndian.PutUint32(cancelMessage[0:4], 16)
+		binary.BigEndian.PutUint32(cancelMessage[4:8], 80877102)
+		binary.BigEndian.PutUint32(cancelMessage[8:12], uint32(1))
+		binary.BigEndian.PutUint32(cancelMessage[12:16], uint32(123))
+		_, err := buf.Write(cancelMessage)
+		require.NoError(t, err)
+
+		_ = s.startUp()
+		require.NoError(t, err)
+		require.Equal(t, true, canceled)
+
+	})
 }
