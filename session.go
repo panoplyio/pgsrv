@@ -20,32 +20,25 @@ var allSessions sync.Map
 // see: https://www.postgresql.org/docs/9.2/static/protocol.html
 // for postgres protocol and startup handshake process
 type session struct {
-	Server        *server
-	Conn          io.ReadWriteCloser
-	Args          map[string]interface{}
-	Secret        int32 // used for cancelling requests
-	Ctx           context.Context
-	CancelFunc    context.CancelFunc
-	initialized   bool
-	queryer       Queryer
-	authenticator authenticator
+	Server      *server
+	Conn        io.ReadWriteCloser
+	Args        map[string]interface{}
+	Secret      int32 // used for cancelling requests
+	Ctx         context.Context
+	CancelFunc  context.CancelFunc
+	initialized bool
 	statements    map[string]*pgx.PreparedStatement
 	portals       map[string]*portal
 }
 
-// Handle a connection session
-func (s *session) Serve() error {
-	t := protocol.NewTransport(s.Conn, s.Conn)
-	s.statements = map[string]*pgx.PreparedStatement{}
-	s.portals = map[string]*portal{}
-
-	suMsg, err := t.StartUp()
+func (s *session) startUp(t *protocol.Transport) error {
+	msg, err := t.StartUp()
 	if err != nil {
 		return err
 	}
 
-	if suMsg.IsCancel() {
-		pid, secret, err := suMsg.CancelKeyData()
+	if msg.IsCancel() {
+		pid, secret, err := msg.CancelKeyData()
 		if err != nil {
 			return err
 		}
@@ -61,7 +54,7 @@ func (s *session) Serve() error {
 		return nil // disconnect.
 	}
 
-	s.Args, err = suMsg.StartupArgs()
+	s.Args, err = msg.StartupArgs()
 	if err != nil {
 		return err
 	}
@@ -95,6 +88,19 @@ func (s *session) Serve() error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+// Handle a connection session
+func (s *session) Serve() error {
+	t := protocol.NewTransport(s.Conn, s.Conn)
+	err := s.startUp(t)
+	if err != nil {
+		return err
+	}
+
+	s.statements = map[string]*pgx.PreparedStatement{}
+	s.portals = map[string]*portal{}
 
 	// query-cycle
 	for {
