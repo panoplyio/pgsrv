@@ -3,6 +3,7 @@ package pgsrv
 import (
 	"context"
 	"fmt"
+	"github.com/jackc/pgx/pgproto3"
 	"github.com/panoplyio/pgsrv/protocol"
 	"io"
 	"math/rand"
@@ -17,22 +18,18 @@ var allSessions sync.Map
 // see: https://www.postgresql.org/docs/9.2/static/protocol.html
 // for postgres protocol and startup handshake process
 type session struct {
-	Server        *server
-	Conn          io.ReadWriteCloser
-	Args          map[string]interface{}
-	Secret        int32 // used for cancelling requests
-	Ctx           context.Context
-	CancelFunc    context.CancelFunc
-	initialized   bool
-	queryer       Queryer
-	authenticator authenticator
+	Server      *server
+	Conn        io.ReadWriteCloser
+	Args        map[string]interface{}
+	Secret      int32 // used for cancelling requests
+	Ctx         context.Context
+	CancelFunc  context.CancelFunc
+	initialized bool
 }
 
-// Handle a connection session
-func (s *session) Serve() error {
-	t := protocol.NewTransport(s.Conn, s.Conn)
-
-	msg, err := t.StartUp()
+func (s *session) startUp() error {
+	handshake := protocol.NewHandshake(s.Conn)
+	msg, err := handshake.Init()
 	if err != nil {
 		return err
 	}
@@ -60,12 +57,12 @@ func (s *session) Serve() error {
 	}
 
 	// handle authentication
-	err = s.Server.authenticator.authenticate(t, s.Args)
+	err = s.Server.authenticator.authenticate(handshake, s.Args)
 	if err != nil {
 		return err
 	}
 
-	err = t.Write(protocol.ParameterStatus("client_encoding", "utf8"))
+	err = handshake.Write(protocol.ParameterStatus("client_encoding", "utf8"))
 	if err != nil {
 		return err
 	}
@@ -84,48 +81,60 @@ func (s *session) Serve() error {
 	// notify the client of the pid and secret to be passed back when it wishes
 	// to interrupt this session
 	s.Ctx, s.CancelFunc = context.WithCancel(context.Background())
-	err = t.Write(protocol.BackendKeyData(pid, s.Secret))
+	err = handshake.Write(protocol.BackendKeyData(pid, s.Secret))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Handle a connection session
+func (s *session) Serve() error {
+	err := s.startUp()
 	if err != nil {
 		return err
 	}
 
+	t := protocol.NewTransport(s.Conn)
+
 	// query-cycle
 	for {
-		msg, err = t.NextMessage()
+		msg, err := t.NextFrontendMessage()
 		if err != nil {
 			return err
 		}
 
-		switch msg.Type() {
-		case protocol.Terminate:
+		switch v := msg.(type) {
+		case *pgproto3.Terminate:
 			s.Conn.Close()
 			return nil // client terminated intentionally
-		case protocol.Query:
-			sql, err := msg.QueryText()
-			if err != nil {
-				return err
+		case *pgproto3.Query:
+			q := &query{
+				transport: t,
+				sql:       v.String,
+				queryer:   s.Server,
+				execer:    s.Server,
 			}
-			q := &query{transport: t, sql: sql, queryer: s.Server, execer: s.Server}
 			err = q.Run(s)
 			if err != nil {
 				return err
 			}
-		case protocol.Describe:
+		case *pgproto3.Describe:
 			err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
 			}
-		case protocol.Parse:
+		case *pgproto3.Parse:
 			err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
 			}
-		case protocol.Bind:
+		case *pgproto3.Bind:
 			err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err
 			}
-		case protocol.Execute:
+		case *pgproto3.Execute:
 			err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 			if err != nil {
 				return err

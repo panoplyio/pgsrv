@@ -32,15 +32,6 @@ var TypesOid = map[string]int{
 // ReadyForQuery is sent whenever the backend is ready for a new query cycle.
 var ReadyForQuery = []byte{'Z', 0, 0, 0, 5, 'I'}
 
-// QueryText returns the SQL query string from a Query or Parse message
-func (m Message) QueryText() (string, error) {
-	if m.Type() != Query {
-		return "", fmt.Errorf("not a query message: %q", m.Type())
-	}
-
-	return string(m[5:]), nil
-}
-
 // RowDescription is a message indicating that DataRow messages are about to
 // be transmitted and delivers their schema (column names/types)
 func RowDescription(cols, types []string) Message {
