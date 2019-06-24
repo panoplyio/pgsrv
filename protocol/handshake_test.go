@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestHandshake_Do(t *testing.T) {
+func TestHandshake_Init(t *testing.T) {
 	t.Run("supported protocol version", func(t *testing.T) {
 		buf := bytes.Buffer{}
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
@@ -45,7 +45,7 @@ func TestHandshake_Do(t *testing.T) {
 		require.Error(t, err, "expected error of unsupported version. got none")
 	})
 
-	t.Run("do twice returns an error", func(t *testing.T) {
+	t.Run("call init twice returns an error", func(t *testing.T) {
 		buf := bytes.Buffer{}
 		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
 		handshake := NewHandshake(comm)

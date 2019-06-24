@@ -22,7 +22,7 @@ type Transport struct {
 }
 
 func (t *Transport) beginTransaction() {
-	t.transaction = &transaction{transport: t, in: []pgproto3.FrontendMessage{}, out: []Message{}}
+	t.transaction = &transaction{transport: t}
 }
 
 func (t *Transport) endTransaction() (err error) {
