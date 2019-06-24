@@ -6,6 +6,7 @@ import (
 	"io"
 )
 
+// NewHandshake crates an Handshake
 func NewHandshake(rw io.ReadWriter) *Handshake {
 	return &Handshake{rw: rw}
 }

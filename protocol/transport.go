@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-// NewTransport creates a protocol
+// NewTransport creates a Transport
 func NewTransport(rw io.ReadWriter) *Transport {
 	b, _ := pgproto3.NewBackend(rw, nil)
 	return &Transport{
