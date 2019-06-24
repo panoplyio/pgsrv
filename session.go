@@ -95,7 +95,7 @@ func (s *session) Serve() error {
 		return err
 	}
 
-	t := protocol.NewHandler(s.Conn)
+	t := protocol.NewTransport(s.Conn)
 
 	// query-cycle
 	for {
@@ -110,10 +110,10 @@ func (s *session) Serve() error {
 			return nil // client terminated intentionally
 		case *pgproto3.Query:
 			q := &query{
-				handler: t,
-				sql:     v.String,
-				queryer: s.Server,
-				execer:  s.Server,
+				transport: t,
+				sql:       v.String,
+				queryer:   s.Server,
+				execer:    s.Server,
 			}
 			err = q.Run(s)
 			if err != nil {

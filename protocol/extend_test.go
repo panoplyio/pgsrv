@@ -11,7 +11,7 @@ import (
 func TestTransaction_Read(t *testing.T) {
 	buf := bytes.Buffer{}
 	comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
-	trans := &transaction{handler: NewHandler(comm), in: []pgproto3.FrontendMessage{}, out: []Message{}}
+	trans := &transaction{transport: NewTransport(comm), in: []pgproto3.FrontendMessage{}, out: []Message{}}
 
 	parseMsg := (&pgproto3.Parse{}).Encode([]byte{})
 	_, err := comm.Write(parseMsg)
