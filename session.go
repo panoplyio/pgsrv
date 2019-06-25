@@ -130,15 +130,16 @@ func (s *session) Serve() error {
 			s.Conn.Close()
 			return nil // client terminated intentionally
 		case *pgproto3.Query:
-			var q *query
-			q, err = parseQuery(v.String)
-			if err != nil {
-				break
+			q := &query{
+				transport: t,
+				sql:       v.String,
+				queryer:   s.Server,
+				execer:    s.Server,
 			}
-			err = q.WithTransport(t).
-				WithQueryer(s.Server).
-				WithExecer(s.Server).
-				Run(s)
+			err = q.Run(s)
+			if err != nil {
+				res = append(res, protocol.ParseComplete)
+			}
 		case *pgproto3.Describe:
 			res, err = s.describe(msg.(*pgproto3.Describe))
 		case *pgproto3.Parse:
