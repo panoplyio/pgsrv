@@ -15,13 +15,14 @@ func parseQuery(sql string) (*query, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &query{ast: ast}, nil
+	return &query{sql: sql, ast: ast}, nil
 }
 
 type query struct {
 	transport *protocol.Transport
 	queryer   Queryer
 	execer    Execer
+	sql       string
 	ast       parser.ParsetreeList
 	numCols   int
 }
@@ -46,6 +47,7 @@ func (q *query) Run(sess Session) (err error) {
 	// add the session to the context
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, sessionCtxKey, sess)
+	ctx = context.WithValue(ctx, sqlCtxKey, q.sql)
 	ctx = context.WithValue(ctx, astCtxKey, q.ast)
 
 	// execute all of the statements
@@ -58,8 +60,10 @@ func (q *query) Run(sess Session) (err error) {
 		// determine if it's a query or command
 		switch v := stmt.(type) {
 		case nodes.PrepareStmt:
-			sess.(*session).storePreparedStatement(&v)
-			err = q.Query(ctx, v.Query)
+			s, ok := sess.(*session)
+			if ok {
+				s.storePreparedStatement(&v)
+			}
 		case nodes.SelectStmt, nodes.VariableShowStmt:
 			err = q.Query(ctx, stmt)
 		default:
