@@ -1,9 +1,10 @@
 package protocol
 
 import (
-	"github.com/jackc/pgx"
+	"fmt"
 	"github.com/jackc/pgx/pgio"
 	"github.com/jackc/pgx/pgproto3"
+	nodes "github.com/lfittl/pg_query_go/nodes"
 )
 
 // ParseComplete is sent when backend parsed a prepared statement successfully
@@ -14,19 +15,23 @@ var BindComplete = []byte{'2', 0, 0, 0, 4}
 
 // ParameterDescription is sent when backend received Describe message from frontend
 // with ObjectType = 'S' - requesting to describe prepared statement with a provided name
-func ParameterDescription(ps *pgx.PreparedStatement) Message {
+func ParameterDescription(ps *nodes.PrepareStmt) (Message, error) {
 	res := []byte{'t'}
 	sp := len(res)
 	res = pgio.AppendInt32(res, -1)
 
-	res = pgio.AppendUint16(res, uint16(len(ps.ParameterOIDs)))
-	for _, oid := range ps.ParameterOIDs {
-		res = pgio.AppendUint32(res, uint32(oid))
+	res = pgio.AppendUint16(res, uint16(len(ps.Argtypes.Items)))
+	for _, v := range ps.Argtypes.Items {
+		p, ok := v.(nodes.TypeName)
+		if !ok {
+			return nil, fmt.Errorf("expected node of type 'TypeName', got %T", p)
+		}
+		res = pgio.AppendUint32(res, uint32(p.TypeOid))
 	}
 
 	pgio.SetInt32(res[sp:], int32(len(res[sp:])))
 
-	return Message(res)
+	return Message(res), nil
 }
 
 // transaction represents a sequence of frontend and backend messages

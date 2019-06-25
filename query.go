@@ -10,38 +10,56 @@ import (
 	"io"
 )
 
+func parseQuery(sql string) (*query, error) {
+	ast, err := parser.Parse(sql)
+	if err != nil {
+		return nil, err
+	}
+	return &query{ast: ast}, nil
+}
+
 type query struct {
 	transport *protocol.Transport
 	queryer   Queryer
 	execer    Execer
-	sql       string
+	ast       parser.ParsetreeList
 	numCols   int
 }
 
-// Run the query using the Server's defined queryer
-func (q *query) Run(sess Session) error {
-	// parse the query
-	ast, err := parser.Parse(q.sql)
-	if err != nil {
-		return q.transport.Write(protocol.ErrorResponse(err))
-	}
+func (q *query) WithTransport(transport *protocol.Transport) *query {
+	q.transport = transport
+	return q
+}
 
-	// add the session to the context, cast to the Session interface just for
-	// compile time verification that the interface is implemented.
+func (q *query) WithQueryer(queryer Queryer) *query {
+	q.queryer = queryer
+	return q
+}
+
+func (q *query) WithExecer(execer Execer) *query {
+	q.execer = execer
+	return q
+}
+
+// Run the query using the Server's defined queryer
+func (q *query) Run(sess Session) (err error) {
+	// add the session to the context
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, sessionCtxKey, sess)
-	ctx = context.WithValue(ctx, sqlCtxKey, q.sql)
-	ctx = context.WithValue(ctx, astCtxKey, ast)
+	ctx = context.WithValue(ctx, astCtxKey, q.ast)
 
 	// execute all of the statements
-	for _, stmt := range ast.Statements {
+	for _, stmt := range q.ast.Statements {
 		rawStmt, isRaw := stmt.(nodes.RawStmt)
 		if isRaw {
 			stmt = rawStmt.Stmt
 		}
 
 		// determine if it's a query or command
-		switch stmt.(type) {
+		switch v := stmt.(type) {
+		case nodes.PrepareStmt:
+			sess.(*session).storePreparedStatement(&v)
+			err = q.Query(ctx, v.Query)
 		case nodes.SelectStmt, nodes.VariableShowStmt:
 			err = q.Query(ctx, stmt)
 		default:
