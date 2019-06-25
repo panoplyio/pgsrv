@@ -5,6 +5,16 @@ import (
 	"io"
 )
 
+// TransactionStatus is used as a return with every message read for commit and rollback implementation
+type TransactionStatus int
+
+const (
+	// TransactionEnded states that the current transaction has finished and has to commit
+	TransactionEnded TransactionStatus = 1 + iota
+	// TransactionEnded states that the current transaction has failed and has to roll-back
+	TransactionFailed
+)
+
 // NewTransport creates a Transport
 func NewTransport(rw io.ReadWriter) *Transport {
 	b, _ := pgproto3.NewBackend(rw, nil)
@@ -38,7 +48,7 @@ func (t *Transport) endTransaction() (err error) {
 //
 // NextFrontendMessage expects to be called only after a call to Handshake without an error response
 // otherwise, an error is returned
-func (t *Transport) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
+func (t *Transport) NextFrontendMessage() (msg pgproto3.FrontendMessage, ts TransactionStatus, err error) {
 	if t.transaction != nil {
 		msg, err = t.transaction.NextFrontendMessage()
 	} else {
@@ -61,6 +71,11 @@ func (t *Transport) NextFrontendMessage() (msg pgproto3.FrontendMessage, err err
 	} else {
 		switch msg.(type) {
 		case *pgproto3.Query, *pgproto3.Sync:
+			if t.transaction.hasError() {
+				ts = TransactionFailed
+			} else {
+				ts = TransactionEnded
+			}
 			err = t.endTransaction()
 		}
 	}

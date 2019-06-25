@@ -33,7 +33,7 @@ func (q *query) Run(sess Session) error {
 	ctx = context.WithValue(ctx, sqlCtxKey, q.sql)
 	ctx = context.WithValue(ctx, astCtxKey, ast)
 
-	// execute all of the statements
+	// execute all of the stmts
 	for _, stmt := range ast.Statements {
 		rawStmt, isRaw := stmt.(nodes.RawStmt)
 		if isRaw {
@@ -44,7 +44,7 @@ func (q *query) Run(sess Session) error {
 		switch v := stmt.(type) {
 		case nodes.PrepareStmt:
 			s, ok := sess.(*session)
-			// only session implementation is capable of storing prepared statements
+			// only session implementation is capable of storing prepared stmts
 			if ok {
 				// we just store the statement and don't do anything
 				s.storePreparedStatement(&v)

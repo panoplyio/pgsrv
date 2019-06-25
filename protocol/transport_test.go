@@ -47,7 +47,7 @@ func TestTransport_Read(t *testing.T) {
 
 		msg := make(chan pgproto3.FrontendMessage)
 		go func() {
-			m, err := transport.NextFrontendMessage()
+			m, _, err := transport.NextFrontendMessage()
 			require.NoError(t, err)
 
 			msg <- m
@@ -76,7 +76,7 @@ func TestTransport_Read(t *testing.T) {
 
 			go func() {
 				for {
-					_, err := transport.NextFrontendMessage()
+					_, _, err := transport.NextFrontendMessage()
 					require.NoError(t, err)
 				}
 			}()
@@ -98,7 +98,7 @@ func TestTransport_Read(t *testing.T) {
 
 			go func() {
 				for {
-					m, err := transport.NextFrontendMessage()
+					m, ts, err := transport.NextFrontendMessage()
 					require.NoError(t, err)
 
 					err = nil
@@ -107,6 +107,8 @@ func TestTransport_Read(t *testing.T) {
 						err = transport.Write(ParseComplete)
 					case *pgproto3.Bind:
 						err = transport.Write(BindComplete)
+					case *pgproto3.Sync:
+						require.Equal(t, TransactionEnded, ts)
 					}
 					require.NoError(t, err)
 				}
@@ -119,6 +121,44 @@ func TestTransport_Read(t *testing.T) {
 				&pgstories.Command{FrontendMessage: &pgproto3.Sync{}},
 				&pgstories.Response{BackendMessage: &pgproto3.ParseComplete{}},
 				&pgstories.Response{BackendMessage: &pgproto3.BindComplete{}},
+				&pgstories.Response{BackendMessage: &pgproto3.ReadyForQuery{}},
+			})
+
+			require.NoError(t, err)
+
+			require.Nil(t, transport.transaction, "expected protocol to end transaction")
+		})
+
+		t.Run("fails transaction", func(t *testing.T) {
+			f, b := net.Pipe()
+
+			transport := NewTransport(b)
+
+			go func() {
+				for {
+					m, ts, err := transport.NextFrontendMessage()
+					require.NoError(t, err)
+
+					err = nil
+					switch m.(type) {
+					case *pgproto3.Parse:
+						err = transport.Write(ParseComplete)
+					case *pgproto3.Bind:
+						err = transport.Write(ErrorResponse(fmt.Errorf("dosn't matter")))
+					case *pgproto3.Sync:
+						require.Equal(t, TransactionFailed, ts)
+					}
+					require.NoError(t, err)
+				}
+			}()
+
+			err := runStory(t, f, []pgstories.Step{
+				&pgstories.Response{BackendMessage: &pgproto3.ReadyForQuery{}},
+				&pgstories.Command{FrontendMessage: &pgproto3.Parse{}},
+				&pgstories.Command{FrontendMessage: &pgproto3.Bind{}},
+				&pgstories.Command{FrontendMessage: &pgproto3.Sync{}},
+				&pgstories.Response{BackendMessage: &pgproto3.ParseComplete{}},
+				&pgstories.Response{BackendMessage: &pgproto3.ErrorResponse{}},
 				&pgstories.Response{BackendMessage: &pgproto3.ReadyForQuery{}},
 			})
 

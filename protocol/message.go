@@ -21,6 +21,11 @@ func (m Message) Type() byte {
 	return b
 }
 
+// IsError determines if the message is an ErrorResponse
+func (m Message) IsError() bool {
+	return m.Type() == 'E'
+}
+
 // MessageReadWriter describes objects that handle client-server communication.
 // Objects implementing this interface are used by logic operations to send Message
 // objects to frontend and receive Message back from it

@@ -27,16 +27,17 @@ type portal struct {
 // see: https://www.postgresql.org/docs/9.2/static/protocol.html
 // for postgres protocol and startup handshake process
 type session struct {
-	Server      *server
-	Conn        io.ReadWriteCloser
-	ConnInfo    *pgtype.ConnInfo
-	Args        map[string]interface{}
-	Secret      int32 // used for cancelling requests
-	Ctx         context.Context
-	CancelFunc  context.CancelFunc
-	initialized bool
-	statements  map[string]*nodes.PrepareStmt
-	portals     map[string]*portal
+	Server       *server
+	Conn         io.ReadWriteCloser
+	ConnInfo     *pgtype.ConnInfo
+	Args         map[string]interface{}
+	Secret       int32 // used for cancelling requests
+	Ctx          context.Context
+	CancelFunc   context.CancelFunc
+	initialized  bool
+	stmts        map[string]*nodes.PrepareStmt
+	pendingStmts map[string]*nodes.PrepareStmt
+	portals      map[string]*portal
 }
 
 func (s *session) startUp() error {
@@ -113,13 +114,14 @@ func (s *session) Serve() error {
 		return err
 	}
 
-	s.statements = map[string]*nodes.PrepareStmt{}
+	s.stmts = map[string]*nodes.PrepareStmt{}
+	s.pendingStmts = map[string]*nodes.PrepareStmt{}
 	s.portals = map[string]*portal{}
 	t := protocol.NewTransport(s.Conn)
 
 	// query-cycle
 	for {
-		msg, err := t.NextFrontendMessage()
+		msg, ts, err := t.NextFrontendMessage()
 		if err != nil {
 			return err
 		}
@@ -149,6 +151,9 @@ func (s *session) Serve() error {
 		case *pgproto3.Execute:
 			err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 		}
+		if ts != 0 {
+			s.sync(ts)
+		}
 		for _, m := range res {
 			err = t.Write(m)
 			if err != nil {
@@ -159,6 +164,16 @@ func (s *session) Serve() error {
 			return err
 		}
 	}
+}
+
+func (s *session) sync(status protocol.TransactionStatus) {
+	if status == protocol.TransactionEnded {
+		for k, v := range s.pendingStmts {
+			s.stmts[k] = v
+		}
+	}
+	s.pendingStmts = map[string]*nodes.PrepareStmt{}
+	s.portals = map[string]*portal{}
 }
 
 func (s *session) oidListToNames(list []uint32) ([]string, error) {
@@ -178,7 +193,7 @@ func (s *session) storePreparedStatement(ps *nodes.PrepareStmt) {
 	if ps.Name != nil {
 		name = *ps.Name
 	}
-	s.statements[name] = ps
+	s.pendingStmts[name] = ps
 }
 
 func (s *session) prepare(parseMsg *pgproto3.Parse) (res []protocol.Message, err error) {
@@ -220,7 +235,7 @@ func (s *session) prepare(parseMsg *pgproto3.Parse) (res []protocol.Message, err
 func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Message, err error) {
 	switch describeMsg.ObjectType {
 	case 'S':
-		if ps, ok := s.statements[describeMsg.Name]; !ok {
+		if ps, ok := s.stmts[describeMsg.Name]; !ok {
 			res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", describeMsg.Name)))
 		} else {
 			var msg protocol.Message
@@ -240,7 +255,7 @@ func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Messa
 }
 
 func (s *session) bind(bindMsg *pgproto3.Bind) (res []protocol.Message, err error) {
-	_, exist := s.statements[bindMsg.PreparedStatement]
+	_, exist := s.stmts[bindMsg.PreparedStatement]
 	if !exist {
 		res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", bindMsg.PreparedStatement)))
 		return
