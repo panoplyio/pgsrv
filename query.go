@@ -11,11 +11,11 @@ import (
 )
 
 type query struct {
-	handler *protocol.Handler
-	queryer Queryer
-	execer  Execer
-	sql     string
-	numCols int
+	transport *protocol.Transport
+	queryer   Queryer
+	execer    Execer
+	sql       string
+	numCols   int
 }
 
 // Run the query using the Server's defined queryer
@@ -23,7 +23,7 @@ func (q *query) Run(sess Session) error {
 	// parse the query
 	ast, err := parser.Parse(q.sql)
 	if err != nil {
-		return q.handler.Write(protocol.ErrorResponse(err))
+		return q.transport.Write(protocol.ErrorResponse(err))
 	}
 
 	// add the session to the context, cast to the Session interface just for
@@ -49,7 +49,7 @@ func (q *query) Run(sess Session) error {
 		}
 
 		if err != nil {
-			return q.handler.Write(protocol.ErrorResponse(err))
+			return q.transport.Write(protocol.ErrorResponse(err))
 		}
 	}
 	return nil
@@ -58,7 +58,7 @@ func (q *query) Run(sess Session) error {
 func (q *query) Query(ctx context.Context, n nodes.Node) error {
 	rows, err := q.queryer.Query(ctx, n)
 	if err != nil {
-		return q.handler.Write(protocol.ErrorResponse(err))
+		return q.transport.Write(protocol.ErrorResponse(err))
 	}
 
 	// build columns from the provided columns list
@@ -69,7 +69,7 @@ func (q *query) Query(ctx context.Context, n nodes.Node) error {
 		types[i] = rowsTypes.ColumnTypeDatabaseTypeName(i)
 	}
 
-	err = q.handler.Write(protocol.RowDescription(cols, types))
+	err = q.transport.Write(protocol.RowDescription(cols, types))
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (q *query) Query(ctx context.Context, n nodes.Node) error {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return q.handler.Write(protocol.ErrorResponse(err))
+			return q.transport.Write(protocol.ErrorResponse(err))
 		}
 
 		// convert the values to string
@@ -90,7 +90,7 @@ func (q *query) Query(ctx context.Context, n nodes.Node) error {
 			strings[i] = fmt.Sprintf("%v", v)
 		}
 
-		err = q.handler.Write(protocol.DataRow(strings))
+		err = q.transport.Write(protocol.DataRow(strings))
 		if err != nil {
 			return err
 		}
@@ -99,13 +99,13 @@ func (q *query) Query(ctx context.Context, n nodes.Node) error {
 	}
 
 	tag := fmt.Sprintf("SELECT %d", count)
-	return q.handler.Write(protocol.CommandComplete(tag))
+	return q.transport.Write(protocol.CommandComplete(tag))
 }
 
 func (q *query) Exec(ctx context.Context, n nodes.Node) error {
 	res, err := q.execer.Exec(ctx, n)
 	if err != nil {
-		return q.handler.Write(protocol.ErrorResponse(err))
+		return q.transport.Write(protocol.ErrorResponse(err))
 	}
 
 	t, ok := res.(ResultTag)
@@ -115,9 +115,9 @@ func (q *query) Exec(ctx context.Context, n nodes.Node) error {
 
 	tag, err := t.Tag()
 	if err != nil {
-		return q.handler.Write(protocol.ErrorResponse(err))
+		return q.transport.Write(protocol.ErrorResponse(err))
 	}
-	return q.handler.Write(protocol.CommandComplete(tag))
+	return q.transport.Write(protocol.CommandComplete(tag))
 }
 
 // QueryFromContext returns the sql string as saved in the given context

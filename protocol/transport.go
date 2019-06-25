@@ -5,27 +5,27 @@ import (
 	"io"
 )
 
-// NewHandler creates a protocol
-func NewHandler(rw io.ReadWriter) *Handler {
+// NewTransport creates a Transport
+func NewTransport(rw io.ReadWriter) *Transport {
 	b, _ := pgproto3.NewBackend(rw, nil)
-	return &Handler{
+	return &Transport{
 		w: rw,
 		r: b,
 	}
 }
 
-// Handler manages the underlying wire protocol between backend and frontend.
-type Handler struct {
+// Transport manages the underlying wire protocol between backend and frontend.
+type Transport struct {
 	w           io.Writer
 	r           *pgproto3.Backend
 	transaction *transaction
 }
 
-func (t *Handler) beginTransaction() {
-	t.transaction = &transaction{handler: t, in: []pgproto3.FrontendMessage{}, out: []Message{}}
+func (t *Transport) beginTransaction() {
+	t.transaction = &transaction{transport: t}
 }
 
-func (t *Handler) endTransaction() (err error) {
+func (t *Transport) endTransaction() (err error) {
 	err = t.transaction.flush()
 	t.transaction = nil
 	return
@@ -38,7 +38,7 @@ func (t *Handler) endTransaction() (err error) {
 //
 // NextFrontendMessage expects to be called only after a call to Handshake without an error response
 // otherwise, an error is returned
-func (t *Handler) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
+func (t *Transport) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
 	if t.transaction != nil {
 		msg, err = t.transaction.NextFrontendMessage()
 	} else {
@@ -68,19 +68,19 @@ func (t *Handler) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error
 	return
 }
 
-func (t *Handler) readFrontendMessage() (pgproto3.FrontendMessage, error) {
+func (t *Transport) readFrontendMessage() (pgproto3.FrontendMessage, error) {
 	return t.r.Receive()
 }
 
 // Write writes the provided message to the client connection
-func (t *Handler) Write(m Message) error {
+func (t *Transport) Write(m Message) error {
 	if t.transaction != nil {
 		return t.transaction.Write(m)
 	}
 	return t.write(m)
 }
 
-func (t *Handler) write(m Message) error {
+func (t *Transport) write(m Message) error {
 	_, err := t.w.Write(m)
 	return err
 }

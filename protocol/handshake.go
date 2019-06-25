@@ -6,6 +6,7 @@ import (
 	"io"
 )
 
+// NewHandshake crates an Handshake
 func NewHandshake(rw io.ReadWriter) *Handshake {
 	return &Handshake{rw: rw}
 }
@@ -42,7 +43,7 @@ func (h *Handshake) Init() (res Message, err error) {
 	}
 
 	// read the initial connection startup message
-	res, err = h.readRawMessage()
+	res, err = h.Read()
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +60,7 @@ func (h *Handshake) Init() (res Message, err error) {
 			return nil, err
 		}
 
-		res, err = h.readRawMessage()
+		res, err = h.Read()
 		if err != nil {
 			return nil, err
 		}
@@ -76,7 +77,6 @@ func (h *Handshake) Init() (res Message, err error) {
 	h.passed = true
 
 	return res, nil
-
 }
 
 func (h *Handshake) readTypedMessage() (Message, error) {

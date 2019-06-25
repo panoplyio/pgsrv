@@ -271,6 +271,5 @@ func TestSession_startUp(t *testing.T) {
 		_ = s.startUp()
 		require.NoError(t, err)
 		require.Equal(t, true, canceled)
-
 	})
 }

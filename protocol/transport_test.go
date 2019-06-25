@@ -36,18 +36,18 @@ func runStory(t *testing.T, conn io.ReadWriter, steps []pgstories.Step) error {
 	return err
 }
 
-func TestHandler_Read(t *testing.T) {
+func TestTransport_Read(t *testing.T) {
 	t.Run("standard message flow", func(t *testing.T) {
 		f, b := net.Pipe()
 
 		frontend, err := pgproto3.NewFrontend(f, f)
 		require.NoError(t, err)
 
-		handler := NewHandler(b)
+		transport := NewTransport(b)
 
 		msg := make(chan pgproto3.FrontendMessage)
 		go func() {
-			m, err := handler.NextFrontendMessage()
+			m, err := transport.NextFrontendMessage()
 			require.NoError(t, err)
 
 			msg <- m
@@ -65,18 +65,18 @@ func TestHandler_Read(t *testing.T) {
 		require.IsTypef(t, &pgproto3.Query{}, res,
 			"expected protocol to identify sent message as type %T. actual: %T", &pgproto3.Query{}, res)
 
-		require.Nil(t, handler.transaction, "expected protocol not to start transaction")
+		require.Nil(t, transport.transaction, "expected protocol not to start transaction")
 	})
 
 	t.Run("extended query message flow", func(t *testing.T) {
 		t.Run("starts transaction", func(t *testing.T) {
 			f, b := net.Pipe()
 
-			handler := NewHandler(b)
+			transport := NewTransport(b)
 
 			go func() {
 				for {
-					_, err := handler.NextFrontendMessage()
+					_, err := transport.NextFrontendMessage()
 					require.NoError(t, err)
 				}
 			}()
@@ -88,25 +88,25 @@ func TestHandler_Read(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			require.NotNil(t, handler.transaction, "expected protocol to start transaction")
+			require.NotNil(t, transport.transaction, "expected protocol to start transaction")
 		})
 
 		t.Run("ends transaction", func(t *testing.T) {
 			f, b := net.Pipe()
 
-			handler := NewHandler(b)
+			transport := NewTransport(b)
 
 			go func() {
 				for {
-					m, err := handler.NextFrontendMessage()
+					m, err := transport.NextFrontendMessage()
 					require.NoError(t, err)
 
 					err = nil
 					switch m.(type) {
 					case *pgproto3.Parse:
-						err = handler.Write(ParseComplete)
+						err = transport.Write(ParseComplete)
 					case *pgproto3.Bind:
-						err = handler.Write(BindComplete)
+						err = transport.Write(BindComplete)
 					}
 					require.NoError(t, err)
 				}
@@ -124,7 +124,7 @@ func TestHandler_Read(t *testing.T) {
 
 			require.NoError(t, err)
 
-			require.Nil(t, handler.transaction, "expected protocol to end transaction")
+			require.Nil(t, transport.transaction, "expected protocol to end transaction")
 		})
 	})
 }
