@@ -1,8 +1,6 @@
 package protocol
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"github.com/jackc/pgx/pgproto3"
 	pgstories "github.com/panoplyio/pg-stories"
@@ -12,46 +10,6 @@ import (
 	"testing"
 	"time"
 )
-
-func TestProtocol_StartUp(t *testing.T) {
-	t.Run("supported protocol version", func(t *testing.T) {
-		buf := bytes.Buffer{}
-		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
-		p := &Transport{W: comm, R: comm}
-
-		_, err := comm.Write([]byte{
-			0, 0, 0, 8, // length
-			0, 3, 0, 0, // 3.0
-			0, 0, 0, 0,
-		})
-		require.NoError(t, err)
-
-		err = comm.Flush()
-		require.NoError(t, err)
-
-		_, err = p.StartUp()
-		require.NoError(t, err)
-	})
-
-	t.Run("unsupported protocol version", func(t *testing.T) {
-		buf := bytes.Buffer{}
-		comm := bufio.NewReadWriter(bufio.NewReader(&buf), bufio.NewWriter(&buf))
-		p := &Transport{W: comm, R: comm}
-
-		_, err := comm.Write([]byte{
-			0, 0, 0, 8, // length
-			0, 2, 0, 0, // 2.0
-			0, 0, 0, 0,
-		})
-		require.NoError(t, err)
-
-		err = comm.Flush()
-		require.NoError(t, err)
-
-		_, err = p.StartUp()
-		require.Error(t, err, "expected error of unsupported version. got none")
-	})
-}
 
 func runStory(t *testing.T, conn io.ReadWriter, steps []pgstories.Step) error {
 	frontend, err := pgproto3.NewFrontend(conn, conn)
@@ -78,19 +36,18 @@ func runStory(t *testing.T, conn io.ReadWriter, steps []pgstories.Step) error {
 	return err
 }
 
-func TestProtocol_Read(t *testing.T) {
+func TestTransport_Read(t *testing.T) {
 	t.Run("standard message flow", func(t *testing.T) {
 		f, b := net.Pipe()
 
 		frontend, err := pgproto3.NewFrontend(f, f)
 		require.NoError(t, err)
 
-		p := NewTransport(b, b)
-		p.initialized = true
+		transport := NewTransport(b)
 
 		msg := make(chan pgproto3.FrontendMessage)
 		go func() {
-			m, err := p.NextFrontendMessage()
+			m, err := transport.NextFrontendMessage()
 			require.NoError(t, err)
 
 			msg <- m
@@ -108,19 +65,18 @@ func TestProtocol_Read(t *testing.T) {
 		require.IsTypef(t, &pgproto3.Query{}, res,
 			"expected protocol to identify sent message as type %T. actual: %T", &pgproto3.Query{}, res)
 
-		require.Nil(t, p.transaction, "expected protocol not to start transaction")
+		require.Nil(t, transport.transaction, "expected protocol not to start transaction")
 	})
 
 	t.Run("extended query message flow", func(t *testing.T) {
 		t.Run("starts transaction", func(t *testing.T) {
 			f, b := net.Pipe()
 
-			p := NewTransport(b, b)
-			p.initialized = true
+			transport := NewTransport(b)
 
 			go func() {
 				for {
-					_, err := p.NextFrontendMessage()
+					_, err := transport.NextFrontendMessage()
 					require.NoError(t, err)
 				}
 			}()
@@ -132,26 +88,25 @@ func TestProtocol_Read(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			require.NotNil(t, p.transaction, "expected protocol to start transaction")
+			require.NotNil(t, transport.transaction, "expected protocol to start transaction")
 		})
 
 		t.Run("ends transaction", func(t *testing.T) {
 			f, b := net.Pipe()
 
-			p := NewTransport(b, b)
-			p.initialized = true
+			transport := NewTransport(b)
 
 			go func() {
 				for {
-					m, err := p.NextFrontendMessage()
+					m, err := transport.NextFrontendMessage()
 					require.NoError(t, err)
 
 					err = nil
 					switch m.(type) {
 					case *pgproto3.Parse:
-						err = p.Write(ParseComplete)
+						err = transport.Write(ParseComplete)
 					case *pgproto3.Bind:
-						err = p.Write(BindComplete)
+						err = transport.Write(BindComplete)
 					}
 					require.NoError(t, err)
 				}
@@ -169,7 +124,7 @@ func TestProtocol_Read(t *testing.T) {
 
 			require.NoError(t, err)
 
-			require.Nil(t, p.transaction, "expected protocol to end transaction")
+			require.Nil(t, transport.transaction, "expected protocol to end transaction")
 		})
 	})
 }

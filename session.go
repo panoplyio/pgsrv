@@ -3,16 +3,23 @@ package pgsrv
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/pgproto3"
 	"github.com/jackc/pgx/pgtype"
+	parser "github.com/lfittl/pg_query_go"
+	nodes "github.com/lfittl/pg_query_go/nodes"
 	"github.com/panoplyio/pgsrv/protocol"
 	"io"
 	"math/rand"
+	"strings"
 	"sync"
 )
 
 var allSessions sync.Map
+
+type portal struct {
+	srcPreparedStatement string
+	parameters           [][]byte
+}
 
 // Session represents a single client-connection, and handles all of the
 // communications with that client.
@@ -20,32 +27,27 @@ var allSessions sync.Map
 // see: https://www.postgresql.org/docs/9.2/static/protocol.html
 // for postgres protocol and startup handshake process
 type session struct {
-	Server        *server
-	Conn          io.ReadWriteCloser
-	Args          map[string]interface{}
-	Secret        int32 // used for cancelling requests
-	Ctx           context.Context
-	CancelFunc    context.CancelFunc
-	initialized   bool
-	queryer       Queryer
-	authenticator authenticator
-	statements    map[string]*pgx.PreparedStatement
-	portals       map[string]*portal
+	Server      *server
+	Conn        io.ReadWriteCloser
+	ConnInfo    *pgtype.ConnInfo
+	Args        map[string]interface{}
+	Secret      int32 // used for cancelling requests
+	Ctx         context.Context
+	CancelFunc  context.CancelFunc
+	initialized bool
+	statements  map[string]*nodes.PrepareStmt
+	portals     map[string]*portal
 }
 
-// Handle a connection session
-func (s *session) Serve() error {
-	t := protocol.NewTransport(s.Conn, s.Conn)
-	s.statements = map[string]*pgx.PreparedStatement{}
-	s.portals = map[string]*portal{}
-
-	suMsg, err := t.StartUp()
+func (s *session) startUp() error {
+	handshake := protocol.NewHandshake(s.Conn)
+	msg, err := handshake.Init()
 	if err != nil {
 		return err
 	}
 
-	if suMsg.IsCancel() {
-		pid, secret, err := suMsg.CancelKeyData()
+	if msg.IsCancel() {
+		pid, secret, err := msg.CancelKeyData()
 		if err != nil {
 			return err
 		}
@@ -61,18 +63,18 @@ func (s *session) Serve() error {
 		return nil // disconnect.
 	}
 
-	s.Args, err = suMsg.StartupArgs()
+	s.Args, err = msg.StartupArgs()
 	if err != nil {
 		return err
 	}
 
 	// handle authentication
-	err = s.Server.authenticator.authenticate(t, s.Args)
+	err = s.Server.authenticator.authenticate(handshake, s.Args)
 	if err != nil {
 		return err
 	}
 
-	err = t.Write(protocol.ParameterStatus("client_encoding", "UTF8"))
+	err = handshake.Write(protocol.ParameterStatus("client_encoding", "utf8"))
 	if err != nil {
 		return err
 	}
@@ -91,10 +93,29 @@ func (s *session) Serve() error {
 	// notify the client of the pid and secret to be passed back when it wishes
 	// to interrupt this session
 	s.Ctx, s.CancelFunc = context.WithCancel(context.Background())
-	err = t.Write(protocol.BackendKeyData(pid, s.Secret))
+	err = handshake.Write(protocol.BackendKeyData(pid, s.Secret))
 	if err != nil {
 		return err
 	}
+
+	s.ConnInfo = pgtype.NewConnInfo()
+	for k, v := range protocol.TypesOid {
+		s.ConnInfo.RegisterDataType(pgtype.DataType{Name: strings.ToLower(k), OID: pgtype.OID(v), Value: &pgtype.GenericText{}})
+	}
+
+	return nil
+}
+
+// Handle a connection session
+func (s *session) Serve() error {
+	err := s.startUp()
+	if err != nil {
+		return err
+	}
+
+	s.statements = map[string]*nodes.PrepareStmt{}
+	s.portals = map[string]*portal{}
+	t := protocol.NewTransport(s.Conn)
 
 	// query-cycle
 	for {
@@ -104,13 +125,20 @@ func (s *session) Serve() error {
 		}
 
 		var res []protocol.Message
-		switch msg.(type) {
+		switch v := msg.(type) {
 		case *pgproto3.Terminate:
 			s.Conn.Close()
 			return nil // client terminated intentionally
 		case *pgproto3.Query:
-			q := &query{transport: t, sql: msg.(*pgproto3.Query).String, queryer: s.Server, execer: s.Server}
-			err = q.Run(s)
+			var q *query
+			q, err = parseQuery(v.String)
+			if err != nil {
+				break
+			}
+			err = q.WithTransport(t).
+				WithQueryer(s.Server).
+				WithExecer(s.Server).
+				Run(s)
 		case *pgproto3.Describe:
 			res, err = s.describe(msg.(*pgproto3.Describe))
 		case *pgproto3.Parse:
@@ -132,16 +160,58 @@ func (s *session) Serve() error {
 	}
 }
 
+func (s *session) oidListToNames(list []uint32) ([]string, error) {
+	res := make([]string, len(list))
+	for i, o := range list {
+		dt, ok := s.ConnInfo.DataTypeForOID(pgtype.OID(o))
+		if !ok {
+			return nil, fmt.Errorf("failed to find type by oid = %d", o)
+		}
+		res[i] = dt.Name
+	}
+	return res, nil
+}
+
+func (s *session) storePreparedStatement(ps *nodes.PrepareStmt) {
+	name := ""
+	if ps.Name != nil {
+		name = *ps.Name
+	}
+	s.statements[name] = ps
+}
+
 func (s *session) prepare(parseMsg *pgproto3.Parse) (res []protocol.Message, err error) {
-	ps := &pgx.PreparedStatement{
-		Name: parseMsg.Name,
-		SQL:  parseMsg.Query,
+	var tree parser.ParsetreeList
+	tree, err = parser.Parse(parseMsg.Query)
+	if err != nil {
+		return
 	}
-	ps.ParameterOIDs = make([]pgtype.OID, len(parseMsg.ParameterOIDs))
-	for i := 0; i < len(parseMsg.ParameterOIDs); i++ {
-		ps.ParameterOIDs[i] = pgtype.OID(parseMsg.ParameterOIDs[i])
+
+	ps := nodes.PrepareStmt{
+		Query:    tree.Statements[0],
+		Argtypes: nodes.List{Items: make([]nodes.Node, len(parseMsg.ParameterOIDs))},
 	}
-	s.statements[ps.Name] = ps
+	for i, p := range parseMsg.ParameterOIDs {
+		dt, ok := s.ConnInfo.DataTypeForOID(pgtype.OID(p))
+		if !ok {
+			err = fmt.Errorf("unrecognized OID: %d", p)
+		}
+		ps.Argtypes.Items[i] = nodes.TypeName{
+			TypeOid: nodes.Oid(p),
+			Names: nodes.List{
+				Items: []nodes.Node{
+					nodes.String{Str: dt.Name},
+				},
+			},
+		}
+	}
+
+	if parseMsg.Name == "" {
+		ps.Name = nil
+	} else {
+		ps.Name = &parseMsg.Name
+	}
+	s.storePreparedStatement(&ps)
 	res = append(res, protocol.ParseComplete)
 	return
 }
@@ -152,7 +222,12 @@ func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Messa
 		if ps, ok := s.statements[describeMsg.Name]; !ok {
 			res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", describeMsg.Name)))
 		} else {
-			res = append(res, protocol.ParameterDescription(ps))
+			var msg protocol.Message
+			msg, err = protocol.ParameterDescription(ps)
+			if err != nil {
+				return
+			}
+			res = append(res, msg)
 			// TODO: add a RowDescription message. this will require access to the catalog
 		}
 	case 'P':
@@ -164,13 +239,13 @@ func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Messa
 }
 
 func (s *session) bind(bindMsg *pgproto3.Bind) (res []protocol.Message, err error) {
-	ps, exist := s.statements[bindMsg.PreparedStatement]
+	_, exist := s.statements[bindMsg.PreparedStatement]
 	if !exist {
 		res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", bindMsg.PreparedStatement)))
 		return
 	}
 	s.portals[bindMsg.DestinationPortal] = &portal{
-		srcPreparedStatement: ps.Name,
+		srcPreparedStatement: bindMsg.PreparedStatement,
 		parameters:           bindMsg.Parameters,
 	}
 	res = append(res, protocol.BindComplete)
