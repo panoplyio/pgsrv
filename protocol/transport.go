@@ -11,7 +11,7 @@ type TransactionState int
 const (
 	// TransactionEnded states that the current transaction has finished and has to commit
 	TransactionEnded TransactionState = 1 + iota
-	// TransactionEnded states that the current transaction has failed and has to roll-back
+	// TransactionFailed states that the current transaction has failed and has to roll-back
 	TransactionFailed
 	// InTransaction states that transaction is active and operations should not commit
 	InTransaction
