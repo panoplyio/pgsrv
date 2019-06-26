@@ -126,17 +126,10 @@ func (s *session) Serve() error {
 			return err
 		}
 
-		switch ts {
-		case protocol.TransactionFailed:
-		case protocol.TransactionEnded:
-
-		}
-
-		if ts != protocol.TransactionFailed {
-			err = s.handleFrontendMessage(t, msg)
-		}
-		if ts != 0 {
-			s.sync(ts)
+		s.handleTransactionState(ts)
+		err = s.handleFrontendMessage(t, msg)
+		if err != nil {
+			return err
 		}
 	}
 }
@@ -176,14 +169,17 @@ func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.Fron
 	return
 }
 
-func (s *session) sync(status protocol.TransactionState) {
-	if status == protocol.TransactionEnded {
-		for k, v := range s.pendingStmts {
-			s.stmts[k] = v
+func (s *session) handleTransactionState(state protocol.TransactionState) {
+	switch state {
+	case protocol.TransactionFailed, protocol.TransactionEnded:
+		if state == protocol.TransactionEnded {
+			for k, v := range s.pendingStmts {
+				s.stmts[k] = v
+			}
 		}
+		s.pendingStmts = map[string]*nodes.PrepareStmt{}
+		s.portals = map[string]*portal{}
 	}
-	s.pendingStmts = map[string]*nodes.PrepareStmt{}
-	s.portals = map[string]*portal{}
 }
 
 func (s *session) oidListToNames(list []uint32) ([]string, error) {
