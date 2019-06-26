@@ -126,47 +126,57 @@ func (s *session) Serve() error {
 			return err
 		}
 
-		var res []protocol.Message
-		switch v := msg.(type) {
-		case *pgproto3.Terminate:
-			s.Conn.Close()
-			return nil // client terminated intentionally
-		case *pgproto3.Query:
-			q := &query{
-				transport: t,
-				sql:       v.String,
-				queryer:   s.Server,
-				execer:    s.Server,
-			}
-			err = q.Run(s)
-			if err != nil {
-				res = append(res, protocol.ParseComplete)
-			}
-		case *pgproto3.Describe:
-			res, err = s.describe(msg.(*pgproto3.Describe))
-		case *pgproto3.Parse:
-			res, err = s.prepare(msg.(*pgproto3.Parse))
-		case *pgproto3.Bind:
-			res, err = s.bind(msg.(*pgproto3.Bind))
-		case *pgproto3.Execute:
-			err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
+		switch ts {
+		case protocol.TransactionFailed:
+		case protocol.TransactionEnded:
+
+		}
+
+		if ts != protocol.TransactionFailed {
+			err = s.handleFrontendMessage(t, msg)
 		}
 		if ts != 0 {
 			s.sync(ts)
 		}
-		for _, m := range res {
-			err = t.Write(m)
-			if err != nil {
-				break
-			}
-		}
-		if err != nil {
-			return err
-		}
 	}
 }
 
-func (s *session) sync(status protocol.TransactionStatus) {
+func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.FrontendMessage) (err error) {
+	var res []protocol.Message
+	switch v := msg.(type) {
+	case *pgproto3.Terminate:
+		s.Conn.Close()
+		return nil // client terminated intentionally
+	case *pgproto3.Query:
+		q := &query{
+			transport: t,
+			sql:       v.String,
+			queryer:   s.Server,
+			execer:    s.Server,
+		}
+		err = q.Run(s)
+		if err != nil {
+			res = append(res, protocol.ParseComplete)
+		}
+	case *pgproto3.Describe:
+		res, err = s.describe(msg.(*pgproto3.Describe))
+	case *pgproto3.Parse:
+		res, err = s.prepare(msg.(*pgproto3.Parse))
+	case *pgproto3.Bind:
+		res, err = s.bind(msg.(*pgproto3.Bind))
+	case *pgproto3.Execute:
+		err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
+	}
+	for _, m := range res {
+		err = t.Write(m)
+		if err != nil {
+			break
+		}
+	}
+	return
+}
+
+func (s *session) sync(status protocol.TransactionState) {
 	if status == protocol.TransactionEnded {
 		for k, v := range s.pendingStmts {
 			s.stmts[k] = v

@@ -76,7 +76,11 @@ func TestTransport_Read(t *testing.T) {
 
 			go func() {
 				for {
-					_, _, err := transport.NextFrontendMessage()
+					msg, ts, err := transport.NextFrontendMessage()
+					switch msg.(type) {
+					case *pgproto3.Parse, *pgproto3.Bind:
+						require.Equal(t, InTransaction, ts)
+					}
 					require.NoError(t, err)
 				}
 			}()
@@ -105,8 +109,10 @@ func TestTransport_Read(t *testing.T) {
 					switch m.(type) {
 					case *pgproto3.Parse:
 						err = transport.Write(ParseComplete)
+						require.Equal(t, InTransaction, ts)
 					case *pgproto3.Bind:
 						err = transport.Write(BindComplete)
+						require.Equal(t, InTransaction, ts)
 					case *pgproto3.Sync:
 						require.Equal(t, TransactionEnded, ts)
 					}
@@ -143,7 +149,9 @@ func TestTransport_Read(t *testing.T) {
 					switch m.(type) {
 					case *pgproto3.Parse:
 						err = transport.Write(ParseComplete)
+						require.Equal(t, InTransaction, ts)
 					case *pgproto3.Bind:
+						require.Equal(t, InTransaction, ts)
 						err = transport.Write(ErrorResponse(fmt.Errorf("dosn't matter")))
 					case *pgproto3.Sync:
 						require.Equal(t, TransactionFailed, ts)
