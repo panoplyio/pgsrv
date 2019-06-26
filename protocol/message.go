@@ -26,10 +26,16 @@ func (m Message) IsError() bool {
 	return m.Type() == 'E'
 }
 
+// MessageWriter describes objects that can send messages to client.
+// Objects implementing this interface are used by logic operations to send Message.
+type MessageWriter interface {
+	Write(m Message) error
+}
+
 // MessageReadWriter describes objects that handle client-server communication.
 // Objects implementing this interface are used by logic operations to send Message
 // objects to frontend and receive Message back from it
 type MessageReadWriter interface {
-	Write(m Message) error
+	MessageWriter
 	Read() (Message, error)
 }

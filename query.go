@@ -10,31 +10,93 @@ import (
 	"io"
 )
 
+type Cursor interface{}
+
+type queryCursor struct {
+	rows    driver.Rows
+	columns []string
+	row     []driver.Value
+	strings []string
+}
+
+func (qc *queryCursor) read(n int, w protocol.MessageWriter) (count int, err error) {
+	for count < n || n == 0 {
+		err = qc.rows.Next(qc.row)
+		if err != nil {
+			break
+		}
+
+		// convert the values to string
+		for i, v := range qc.row {
+			qc.strings[i] = fmt.Sprintf("%v", v)
+		}
+
+		err = w.Write(protocol.DataRow(qc.strings))
+		if err != nil {
+			break
+		}
+
+		count++
+	}
+
+	if err == io.EOF {
+		err = nil
+	}
+	return
+}
+
+type commandCursor struct {
+	res driver.Result
+}
+
 type query struct {
+	sess      Session
 	transport *protocol.Transport
 	queryer   Queryer
 	execer    Execer
 	sql       string
+	ast       *parser.ParsetreeList
 	numCols   int
 }
 
-// Run the query using the Server's defined queryer
-func (q *query) Run(sess Session) error {
+func parseQuery(sql string) (*query, error) {
 	// parse the query
-	ast, err := parser.Parse(q.sql)
+	ast, err := parser.Parse(sql)
 	if err != nil {
-		return q.transport.Write(protocol.ErrorResponse(err))
+		return nil, err
 	}
+	return &query{ast: &ast, sql: sql}, nil
+}
 
-	// add the session to the context, cast to the Session interface just for
-	// compile time verification that the interface is implemented.
+func createQuery(sql string, stmts ...nodes.Node) *query {
+	ast := parser.ParsetreeList{}
+	for _, s := range stmts {
+		ast.Statements = append(ast.Statements, s)
+	}
+	return &query{ast: &ast, sql: sql}
+}
+
+func (q *query) withTransport(transport *protocol.Transport) *query {
+	q.transport = transport
+	return q
+}
+
+func (q *query) withQueryer(queryer Queryer) *query {
+	q.queryer = queryer
+	return q
+}
+
+func (q *query) withExecer(execer Execer) *query {
+	q.execer = execer
+	return q
+}
+
+func (q *query) RunAndGetCursors() []Cursor {
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, sessionCtxKey, sess)
 	ctx = context.WithValue(ctx, sqlCtxKey, q.sql)
-	ctx = context.WithValue(ctx, astCtxKey, ast)
 
 	// execute all of the stmts
-	for _, stmt := range ast.Statements {
+	for _, stmt := range q.ast.Statements {
 		rawStmt, isRaw := stmt.(nodes.RawStmt)
 		if isRaw {
 			stmt = rawStmt.Stmt
@@ -43,7 +105,7 @@ func (q *query) Run(sess Session) error {
 		// determine if it's a query or command
 		switch v := stmt.(type) {
 		case nodes.PrepareStmt:
-			s, ok := sess.(*session)
+			s, ok := q.sess.(*session)
 			// only session implementation is capable of storing prepared stmts
 			if ok {
 				// we just store the statement and don't do anything
@@ -62,7 +124,71 @@ func (q *query) Run(sess Session) error {
 	return nil
 }
 
-func (q *query) Query(ctx context.Context, n nodes.Node) error {
+func (q *query) Query(ctx context.Context, n nodes.Node) (*queryCursor, error) {
+	rows, err := q.queryer.Query(ctx, n)
+	if err != nil {
+		return nil, err
+	}
+
+	// build columns from the provided columns list
+	cols := rows.Columns()
+	types := make([]string, len(cols))
+	rowsTypes, ok := rows.(driver.RowsColumnTypeDatabaseTypeName)
+	for i := 0; i < len(types) && ok; i++ {
+		types[i] = rowsTypes.ColumnTypeDatabaseTypeName(i)
+	}
+	return &queryCursor{
+		columns: cols,
+		row:     make([]driver.Value, len(cols)),
+		strings: make([]string, len(cols)),
+	}, nil
+}
+
+// Run the query using the Server's defined queryer
+func (q *query) Run() error {
+	// parse the query
+	ast, err := parser.Parse(q.sql)
+	if err != nil {
+		return q.transport.Write(protocol.ErrorResponse(err))
+	}
+
+	// add the session to the context, cast to the Session interface just for
+	// compile time verification that the interface is implemented.
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, sessionCtxKey, q.sess)
+	ctx = context.WithValue(ctx, sqlCtxKey, q.sql)
+	ctx = context.WithValue(ctx, astCtxKey, ast)
+
+	// execute all of the stmts
+	for _, stmt := range ast.Statements {
+		rawStmt, isRaw := stmt.(nodes.RawStmt)
+		if isRaw {
+			stmt = rawStmt.Stmt
+		}
+
+		// determine if it's a query or command
+		switch v := stmt.(type) {
+		case nodes.PrepareStmt:
+			s, ok := q.sess.(*session)
+			// only session implementation is capable of storing prepared stmts
+			if ok {
+				// we just store the statement and don't do anything
+				s.storePreparedStatement(&v)
+			}
+		case nodes.SelectStmt, nodes.VariableShowStmt:
+			err = q.Query(ctx, stmt)
+		default:
+			err = q.Exec(ctx, stmt)
+		}
+
+		if err != nil {
+			return q.transport.Write(protocol.ErrorResponse(err))
+		}
+	}
+	return nil
+}
+
+func (q *query) Query(ctx context.Context, n nodes.Node) (*queryCursor, error) {
 	rows, err := q.queryer.Query(ctx, n)
 	if err != nil {
 		return q.transport.Write(protocol.ErrorResponse(err))

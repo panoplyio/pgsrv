@@ -134,6 +134,11 @@ func Unsupported(msg string, args ...interface{}) Err {
 	return &err{M: msg, C: "0A000", P: -1}
 }
 
+func SyntaxError(msg string, args ...interface{}) Err {
+	msg = fmt.Sprintf(msg, args...)
+	return &err{M: msg, C: "42601", P: -1, S: "ERROR"}
+}
+
 func fromErr(e error) *err {
 	err1, ok := e.(*err)
 	if ok {

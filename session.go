@@ -2,6 +2,7 @@ package pgsrv
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"github.com/jackc/pgx/pgproto3"
 	"github.com/jackc/pgx/pgtype"
@@ -19,6 +20,12 @@ var allSessions sync.Map
 type portal struct {
 	srcPreparedStatement string
 	parameters           [][]byte
+	cursor               *cursor
+}
+
+type statement struct {
+	rawSql      string
+	prepareStmt *nodes.PrepareStmt
 }
 
 // Session represents a single client-connection, and handles all of the
@@ -34,9 +41,8 @@ type session struct {
 	Secret       int32 // used for cancelling requests
 	Ctx          context.Context
 	CancelFunc   context.CancelFunc
-	initialized  bool
-	stmts        map[string]*nodes.PrepareStmt
-	pendingStmts map[string]*nodes.PrepareStmt
+	stmts        map[string]*statement
+	pendingStmts map[string]*statement
 	portals      map[string]*portal
 }
 
@@ -114,8 +120,8 @@ func (s *session) Serve() error {
 		return err
 	}
 
-	s.stmts = map[string]*nodes.PrepareStmt{}
-	s.pendingStmts = map[string]*nodes.PrepareStmt{}
+	s.stmts = map[string]*statement{}
+	s.pendingStmts = map[string]*statement{}
 	s.portals = map[string]*portal{}
 	t := protocol.NewTransport(s.Conn)
 
@@ -147,18 +153,18 @@ func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.Fron
 			queryer:   s.Server,
 			execer:    s.Server,
 		}
-		err = q.Run(s)
+		err = q.Run()
 		if err != nil {
 			res = append(res, protocol.ParseComplete)
 		}
 	case *pgproto3.Describe:
-		res, err = s.describe(msg.(*pgproto3.Describe))
+		res, err = s.describe(v.ObjectType, v.Name)
 	case *pgproto3.Parse:
-		res, err = s.prepare(msg.(*pgproto3.Parse))
+		res, err = s.prepare(v.Name, v.Query, v.ParameterOIDs)
 	case *pgproto3.Bind:
-		res, err = s.bind(msg.(*pgproto3.Bind))
+		res, err = s.bind(v.PreparedStatement, v.DestinationPortal, v.Parameters)
 	case *pgproto3.Execute:
-		err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
+		res, err = s.execute(v.Portal, v.MaxRows)
 	}
 	for _, m := range res {
 		err = t.Write(m)
@@ -177,7 +183,7 @@ func (s *session) handleTransactionState(state protocol.TransactionState) {
 				s.stmts[k] = v
 			}
 		}
-		s.pendingStmts = map[string]*nodes.PrepareStmt{}
+		s.pendingStmts = map[string]*statement{}
 		s.portals = map[string]*portal{}
 	}
 }
@@ -194,26 +200,44 @@ func (s *session) oidListToNames(list []uint32) ([]string, error) {
 	return res, nil
 }
 
-func (s *session) storePreparedStatement(ps *nodes.PrepareStmt) {
-	name := ""
-	if ps.Name != nil {
-		name = *ps.Name
+func (s *session) execute(portalName string, maxRows uint32) (res []protocol.Message, err error) {
+	p, ok := s.portals[portalName]
+	if !ok {
+		res = append(res, protocol.ErrorResponse(fmt.Errorf("portal %s not exist", portalName)))
+		return
 	}
-	s.pendingStmts[name] = ps
+	if p.cursor != nil {
+		p.cursor.Next()
+	}
 }
 
-func (s *session) prepare(parseMsg *pgproto3.Parse) (res []protocol.Message, err error) {
+func (s *session) storePreparedStatement(stmt *statement) {
+	name := ""
+	if stmt.prepareStmt.Name != nil {
+		name = *stmt.prepareStmt.Name
+	}
+	s.pendingStmts[name] = stmt
+}
+
+func (s *session) prepare(name, sql string, paramOIDs []uint32) (res []protocol.Message, err error) {
 	var tree parser.ParsetreeList
-	tree, err = parser.Parse(parseMsg.Query)
+	tree, err = parser.Parse(sql)
 	if err != nil {
 		return
 	}
 
-	ps := nodes.PrepareStmt{
-		Query:    tree.Statements[0],
-		Argtypes: nodes.List{Items: make([]nodes.Node, len(parseMsg.ParameterOIDs))},
+	if len(tree.Statements) > 1 {
+		res = append(res, protocol.ErrorResponse(SyntaxError("cannot insert multiple commands into a prepared statement")))
+		return
 	}
-	for i, p := range parseMsg.ParameterOIDs {
+
+	ps := nodes.PrepareStmt{
+		Argtypes: nodes.List{Items: make([]nodes.Node, len(paramOIDs))},
+	}
+	if len(tree.Statements) == 1 {
+		ps.Query = tree.Statements[0]
+	}
+	for i, p := range paramOIDs {
 		dt, ok := s.ConnInfo.DataTypeForOID(pgtype.OID(p))
 		if !ok {
 			err = fmt.Errorf("unrecognized OID: %d", p)
@@ -228,24 +252,24 @@ func (s *session) prepare(parseMsg *pgproto3.Parse) (res []protocol.Message, err
 		}
 	}
 
-	if parseMsg.Name == "" {
+	if name == "" {
 		ps.Name = nil
 	} else {
-		ps.Name = &parseMsg.Name
+		ps.Name = &name
 	}
-	s.storePreparedStatement(&ps)
+	s.storePreparedStatement(&statement{rawSql: sql, prepareStmt: &ps})
 	res = append(res, protocol.ParseComplete)
 	return
 }
 
-func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Message, err error) {
-	switch describeMsg.ObjectType {
+func (s *session) describe(objectType byte, objectName string) (res []protocol.Message, err error) {
+	switch objectType {
 	case 'S':
-		if ps, ok := s.stmts[describeMsg.Name]; !ok {
-			res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", describeMsg.Name)))
+		if stmt, ok := s.stmts[objectName]; !ok {
+			res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", objectName)))
 		} else {
 			var msg protocol.Message
-			msg, err = protocol.ParameterDescription(ps)
+			msg, err = protocol.ParameterDescription(stmt.prepareStmt)
 			if err != nil {
 				return
 			}
@@ -253,22 +277,22 @@ func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Messa
 			// TODO: add a RowDescription message. this will require access to the catalog
 		}
 	case 'P':
-		err = fmt.Errorf("unsupported object type '%c'", describeMsg.ObjectType)
+		err = fmt.Errorf("unsupported object type '%c'", objectType)
 	default:
-		err = fmt.Errorf("unrecognized object type '%c'", describeMsg.ObjectType)
+		err = fmt.Errorf("unrecognized object type '%c'", objectType)
 	}
 	return
 }
 
-func (s *session) bind(bindMsg *pgproto3.Bind) (res []protocol.Message, err error) {
-	_, exist := s.stmts[bindMsg.PreparedStatement]
+func (s *session) bind(srcPreparedStmt, dstPortal string, parameters [][]byte) (res []protocol.Message, err error) {
+	_, exist := s.stmts[srcPreparedStmt]
 	if !exist {
-		res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", bindMsg.PreparedStatement)))
+		res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", srcPreparedStmt)))
 		return
 	}
-	s.portals[bindMsg.DestinationPortal] = &portal{
-		srcPreparedStatement: bindMsg.PreparedStatement,
-		parameters:           bindMsg.Parameters,
+	s.portals[dstPortal] = &portal{
+		srcPreparedStatement: srcPreparedStmt,
+		parameters:           parameters,
 	}
 	res = append(res, protocol.BindComplete)
 	return
