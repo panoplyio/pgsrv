@@ -2,7 +2,6 @@ package pgsrv
 
 import (
 	"context"
-	"database/sql/driver"
 	"fmt"
 	"github.com/jackc/pgx/pgproto3"
 	"github.com/jackc/pgx/pgtype"
@@ -20,7 +19,7 @@ var allSessions sync.Map
 type portal struct {
 	srcPreparedStatement string
 	parameters           [][]byte
-	cursor               *cursor
+	result               Result
 }
 
 type statement struct {
@@ -106,6 +105,7 @@ func (s *session) startUp() error {
 	}
 
 	s.ConnInfo = pgtype.NewConnInfo()
+	s.ConnInfo.RegisterDataType(pgtype.DataType{Name: "text", OID: pgtype.OID(0), Value: &pgtype.GenericText{}})
 	for k, v := range protocol.TypesOid {
 		s.ConnInfo.RegisterDataType(pgtype.DataType{Name: strings.ToLower(k), OID: pgtype.OID(v), Value: &pgtype.GenericText{}})
 	}
@@ -140,39 +140,14 @@ func (s *session) Serve() error {
 	}
 }
 
-func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.FrontendMessage) (err error) {
-	var res []protocol.Message
-	switch v := msg.(type) {
-	case *pgproto3.Terminate:
-		s.Conn.Close()
-		return nil // client terminated intentionally
-	case *pgproto3.Query:
-		q := &query{
-			transport: t,
-			sql:       v.String,
-			queryer:   s.Server,
-			execer:    s.Server,
-		}
-		err = q.Run()
-		if err != nil {
-			res = append(res, protocol.ParseComplete)
-		}
-	case *pgproto3.Describe:
-		res, err = s.describe(v.ObjectType, v.Name)
-	case *pgproto3.Parse:
-		res, err = s.prepare(v.Name, v.Query, v.ParameterOIDs)
-	case *pgproto3.Bind:
-		res, err = s.bind(v.PreparedStatement, v.DestinationPortal, v.Parameters)
-	case *pgproto3.Execute:
-		res, err = s.execute(v.Portal, v.MaxRows)
+func (s *session) getPreparedStmt(name string) *statement {
+	if stmt, ok := s.pendingStmts[name]; ok {
+		return stmt
 	}
-	for _, m := range res {
-		err = t.Write(m)
-		if err != nil {
-			break
-		}
+	if stmt, ok := s.stmts[name]; ok {
+		return stmt
 	}
-	return
+	return nil
 }
 
 func (s *session) handleTransactionState(state protocol.TransactionState) {
@@ -188,6 +163,66 @@ func (s *session) handleTransactionState(state protocol.TransactionState) {
 	}
 }
 
+func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.FrontendMessage) (err error) {
+	var res []protocol.Message
+	switch v := msg.(type) {
+	case *pgproto3.Terminate:
+		s.Conn.Close()
+		return nil // client terminated intentionally
+	case *pgproto3.Query:
+		err = s.query(v.String, t)
+		if err != nil {
+			res = append(res, protocol.ParseComplete)
+		}
+	case *pgproto3.Describe:
+		res, err = s.describe(v.ObjectType, v.Name)
+	case *pgproto3.Parse:
+		res, err = s.prepare(v.Name, v.Query, v.ParameterOIDs)
+	case *pgproto3.Bind:
+		res, err = s.bind(v.PreparedStatement, v.DestinationPortal, v.Parameters)
+	case *pgproto3.Execute:
+		res, err = s.execute(t, v.Portal, v.MaxRows)
+	}
+	for _, m := range res {
+		err = t.Write(m)
+		if err != nil {
+			break
+		}
+	}
+	return
+}
+
+func (s *session) query(sql string, t *protocol.Transport) error {
+	q, err := parseQuery(sql)
+	if err != nil {
+		return err
+	}
+	results, err := q.withExecer(s.Server).
+		withQueryer(s.Server).
+		Run()
+
+	for _, res := range results {
+		if c, ok := res.(*Cursor); ok {
+			err = t.Write(protocol.RowDescription(c.columns, c.types))
+			if err != nil {
+				return err
+			}
+			_, err := c.Fetch(0, t)
+			if err != nil {
+				return err
+			}
+		}
+		tag, err := res.Tag()
+		if err == nil {
+			err = t.Write(protocol.CommandComplete(tag))
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *session) oidListToNames(list []uint32) ([]string, error) {
 	res := make([]string, len(list))
 	for i, o := range list {
@@ -200,15 +235,47 @@ func (s *session) oidListToNames(list []uint32) ([]string, error) {
 	return res, nil
 }
 
-func (s *session) execute(portalName string, maxRows uint32) (res []protocol.Message, err error) {
-	p, ok := s.portals[portalName]
+func (s *session) execute(t *protocol.Transport, portalName string, maxRows uint32) (res []protocol.Message, err error) {
+	portal, ok := s.portals[portalName]
 	if !ok {
 		res = append(res, protocol.ErrorResponse(fmt.Errorf("portal %s not exist", portalName)))
 		return
 	}
-	if p.cursor != nil {
-		p.cursor.Next()
+	stmt := s.getPreparedStmt(portal.srcPreparedStatement)
+	if stmt == nil {
+		res = append(res, protocol.ErrorResponse(fmt.Errorf("statement %s not exist", portal.srcPreparedStatement)))
+		return
 	}
+	if portal.result == nil {
+		q := createQuery(stmt.rawSql, stmt.prepareStmt.Query)
+		var results []Result
+		results, err = q.withExecer(s.Server).
+			withQueryer(s.Server).
+			Run()
+		if err != nil {
+			return
+		}
+
+		// prepared statement can have at most 1 command, hence query can produce at most 1 result
+		portal.result = results[0]
+	}
+
+	if c, ok := portal.result.(*Cursor); ok {
+		//err = t.Write(protocol.RowDescription(c.columns, c.types))
+		//if err != nil {
+		//	return
+		//}
+		_, err = c.Fetch(int(maxRows), t)
+		if err != nil {
+			return
+		}
+	}
+	var tag string
+	tag, err = portal.result.Tag()
+	if err == nil {
+		res = append(res, protocol.CommandComplete(tag))
+	}
+	return
 }
 
 func (s *session) storePreparedStatement(stmt *statement) {
@@ -241,6 +308,7 @@ func (s *session) prepare(name, sql string, paramOIDs []uint32) (res []protocol.
 		dt, ok := s.ConnInfo.DataTypeForOID(pgtype.OID(p))
 		if !ok {
 			err = fmt.Errorf("unrecognized OID: %d", p)
+			return
 		}
 		ps.Argtypes.Items[i] = nodes.TypeName{
 			TypeOid: nodes.Oid(p),
@@ -265,7 +333,8 @@ func (s *session) prepare(name, sql string, paramOIDs []uint32) (res []protocol.
 func (s *session) describe(objectType byte, objectName string) (res []protocol.Message, err error) {
 	switch objectType {
 	case 'S':
-		if stmt, ok := s.stmts[objectName]; !ok {
+		stmt := s.getPreparedStmt(objectName)
+		if stmt == nil {
 			res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", objectName)))
 		} else {
 			var msg protocol.Message
@@ -274,10 +343,12 @@ func (s *session) describe(objectType byte, objectName string) (res []protocol.M
 				return
 			}
 			res = append(res, msg)
-			// TODO: add a RowDescription message. this will require access to the catalog
+			// TODO: add a real RowDescription message. this will require access to the catalog
+			res = append(res, protocol.RowDescription(nil, nil))
 		}
 	case 'P':
-		err = fmt.Errorf("unsupported object type '%c'", objectType)
+		// TODO: add a real RowDescription message. this will require access to the catalog
+		res = append(res, protocol.RowDescription(nil, nil))
 	default:
 		err = fmt.Errorf("unrecognized object type '%c'", objectType)
 	}
@@ -285,8 +356,8 @@ func (s *session) describe(objectType byte, objectName string) (res []protocol.M
 }
 
 func (s *session) bind(srcPreparedStmt, dstPortal string, parameters [][]byte) (res []protocol.Message, err error) {
-	_, exist := s.stmts[srcPreparedStmt]
-	if !exist {
+	stmt := s.getPreparedStmt(srcPreparedStmt)
+	if stmt == nil {
 		res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", srcPreparedStmt)))
 		return
 	}

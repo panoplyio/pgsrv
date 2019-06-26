@@ -48,7 +48,7 @@ func (t *Transport) endTransaction() (err error) {
 func (t *Transport) affectTransaction(msg pgproto3.FrontendMessage) (ts TransactionState, err error) {
 	if t.transaction == nil {
 		switch msg.(type) {
-		case *pgproto3.Parse, *pgproto3.Bind, *pgproto3.Describe:
+		case *pgproto3.Parse, *pgproto3.Bind, *pgproto3.Describe, *pgproto3.Execute:
 			t.beginTransaction()
 			ts = InTransaction
 		default:

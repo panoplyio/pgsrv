@@ -10,34 +10,52 @@ import (
 	"io"
 )
 
-type Cursor interface{}
+type Result interface {
+	driver.Result
+	ResultTag
+}
 
-type queryCursor struct {
+type Cursor struct {
 	rows    driver.Rows
 	columns []string
 	row     []driver.Value
 	strings []string
+	types   []string
+	count   int
 }
 
-func (qc *queryCursor) read(n int, w protocol.MessageWriter) (count int, err error) {
+func (c *Cursor) LastInsertId() (i int64, err error) {
+	return
+}
+
+func (c *Cursor) RowsAffected() (i int64, err error) {
+	return
+}
+
+func (c *Cursor) Tag() (string, error) {
+	return fmt.Sprintf("SELECT %d", c.count), nil
+}
+
+func (c *Cursor) Fetch(n int, w protocol.MessageWriter) (count int, err error) {
 	for count < n || n == 0 {
-		err = qc.rows.Next(qc.row)
+		err = c.rows.Next(c.row)
 		if err != nil {
 			break
 		}
 
 		// convert the values to string
-		for i, v := range qc.row {
-			qc.strings[i] = fmt.Sprintf("%v", v)
+		for i, v := range c.row {
+			c.strings[i] = fmt.Sprintf("%v", v)
 		}
 
-		err = w.Write(protocol.DataRow(qc.strings))
+		err = w.Write(protocol.DataRow(c.strings))
 		if err != nil {
 			break
 		}
 
 		count++
 	}
+	c.count += count
 
 	if err == io.EOF {
 		err = nil
@@ -45,18 +63,22 @@ func (qc *queryCursor) read(n int, w protocol.MessageWriter) (count int, err err
 	return
 }
 
-type commandCursor struct {
-	res driver.Result
+type CommandResult struct {
+	driver.Result
+	tagger ResultTag
+}
+
+func (cr *CommandResult) Tag() (string, error) {
+	return cr.tagger.Tag()
 }
 
 type query struct {
-	sess      Session
-	transport *protocol.Transport
-	queryer   Queryer
-	execer    Execer
-	sql       string
-	ast       *parser.ParsetreeList
-	numCols   int
+	sess    Session
+	queryer Queryer
+	execer  Execer
+	sql     string
+	ast     *parser.ParsetreeList
+	numCols int
 }
 
 func parseQuery(sql string) (*query, error) {
@@ -76,11 +98,6 @@ func createQuery(sql string, stmts ...nodes.Node) *query {
 	return &query{ast: &ast, sql: sql}
 }
 
-func (q *query) withTransport(transport *protocol.Transport) *query {
-	q.transport = transport
-	return q
-}
-
 func (q *query) withQueryer(queryer Queryer) *query {
 	q.queryer = queryer
 	return q
@@ -91,7 +108,7 @@ func (q *query) withExecer(execer Execer) *query {
 	return q
 }
 
-func (q *query) RunAndGetCursors() []Cursor {
+func (q *query) Run() (res []Result, err error) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, sqlCtxKey, q.sql)
 
@@ -102,6 +119,7 @@ func (q *query) RunAndGetCursors() []Cursor {
 			stmt = rawStmt.Stmt
 		}
 
+		var r Result
 		// determine if it's a query or command
 		switch v := stmt.(type) {
 		case nodes.PrepareStmt:
@@ -109,22 +127,23 @@ func (q *query) RunAndGetCursors() []Cursor {
 			// only session implementation is capable of storing prepared stmts
 			if ok {
 				// we just store the statement and don't do anything
-				s.storePreparedStatement(&v)
+				s.storePreparedStatement(&statement{prepareStmt: &v})
 			}
 		case nodes.SelectStmt, nodes.VariableShowStmt:
-			err = q.Query(ctx, stmt)
+			r, err = q.Query(ctx, stmt)
 		default:
-			err = q.Exec(ctx, stmt)
+			r, err = q.Exec(ctx, stmt)
 		}
 
 		if err != nil {
-			return q.transport.Write(protocol.ErrorResponse(err))
+			return
 		}
+		res = append(res, r)
 	}
-	return nil
+	return
 }
 
-func (q *query) Query(ctx context.Context, n nodes.Node) (*queryCursor, error) {
+func (q *query) Query(ctx context.Context, n nodes.Node) (*Cursor, error) {
 	rows, err := q.queryer.Query(ctx, n)
 	if err != nil {
 		return nil, err
@@ -137,108 +156,19 @@ func (q *query) Query(ctx context.Context, n nodes.Node) (*queryCursor, error) {
 	for i := 0; i < len(types) && ok; i++ {
 		types[i] = rowsTypes.ColumnTypeDatabaseTypeName(i)
 	}
-	return &queryCursor{
+	return &Cursor{
 		columns: cols,
 		row:     make([]driver.Value, len(cols)),
 		strings: make([]string, len(cols)),
+		rows:    rows,
+		types:   types,
 	}, nil
 }
 
-// Run the query using the Server's defined queryer
-func (q *query) Run() error {
-	// parse the query
-	ast, err := parser.Parse(q.sql)
-	if err != nil {
-		return q.transport.Write(protocol.ErrorResponse(err))
-	}
-
-	// add the session to the context, cast to the Session interface just for
-	// compile time verification that the interface is implemented.
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, sessionCtxKey, q.sess)
-	ctx = context.WithValue(ctx, sqlCtxKey, q.sql)
-	ctx = context.WithValue(ctx, astCtxKey, ast)
-
-	// execute all of the stmts
-	for _, stmt := range ast.Statements {
-		rawStmt, isRaw := stmt.(nodes.RawStmt)
-		if isRaw {
-			stmt = rawStmt.Stmt
-		}
-
-		// determine if it's a query or command
-		switch v := stmt.(type) {
-		case nodes.PrepareStmt:
-			s, ok := q.sess.(*session)
-			// only session implementation is capable of storing prepared stmts
-			if ok {
-				// we just store the statement and don't do anything
-				s.storePreparedStatement(&v)
-			}
-		case nodes.SelectStmt, nodes.VariableShowStmt:
-			err = q.Query(ctx, stmt)
-		default:
-			err = q.Exec(ctx, stmt)
-		}
-
-		if err != nil {
-			return q.transport.Write(protocol.ErrorResponse(err))
-		}
-	}
-	return nil
-}
-
-func (q *query) Query(ctx context.Context, n nodes.Node) (*queryCursor, error) {
-	rows, err := q.queryer.Query(ctx, n)
-	if err != nil {
-		return q.transport.Write(protocol.ErrorResponse(err))
-	}
-
-	// build columns from the provided columns list
-	cols := rows.Columns()
-	types := make([]string, len(cols))
-	rowsTypes, ok := rows.(driver.RowsColumnTypeDatabaseTypeName)
-	for i := 0; i < len(types) && ok; i++ {
-		types[i] = rowsTypes.ColumnTypeDatabaseTypeName(i)
-	}
-
-	err = q.transport.Write(protocol.RowDescription(cols, types))
-	if err != nil {
-		return err
-	}
-
-	count := 0
-	row := make([]driver.Value, len(cols))
-	strings := make([]string, len(cols))
-	for {
-		err = rows.Next(row)
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return q.transport.Write(protocol.ErrorResponse(err))
-		}
-
-		// convert the values to string
-		for i, v := range row {
-			strings[i] = fmt.Sprintf("%v", v)
-		}
-
-		err = q.transport.Write(protocol.DataRow(strings))
-		if err != nil {
-			return err
-		}
-
-		count++
-	}
-
-	tag := fmt.Sprintf("SELECT %d", count)
-	return q.transport.Write(protocol.CommandComplete(tag))
-}
-
-func (q *query) Exec(ctx context.Context, n nodes.Node) error {
+func (q *query) Exec(ctx context.Context, n nodes.Node) (*CommandResult, error) {
 	res, err := q.execer.Exec(ctx, n)
 	if err != nil {
-		return q.transport.Write(protocol.ErrorResponse(err))
+		return nil, err
 	}
 
 	t, ok := res.(ResultTag)
@@ -246,11 +176,10 @@ func (q *query) Exec(ctx context.Context, n nodes.Node) error {
 		t = &tagger{res, n}
 	}
 
-	tag, err := t.Tag()
-	if err != nil {
-		return q.transport.Write(protocol.ErrorResponse(err))
-	}
-	return q.transport.Write(protocol.CommandComplete(tag))
+	return &CommandResult{
+		Result: res,
+		tagger: t,
+	}, nil
 }
 
 // QueryFromContext returns the sql string as saved in the given context
