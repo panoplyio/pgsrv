@@ -76,7 +76,7 @@ type query struct {
 	execer   Execer
 	sql      string
 	ast      *parser.ParsetreeList
-	argTypes []nodes.Oid
+	argTypes []nodes.TypeName
 	params   [][]byte
 	numCols  int
 }
@@ -108,7 +108,7 @@ func (q *query) withExecer(execer Execer) *query {
 	return q
 }
 
-func (q *query) withArgTypes(argTypes []nodes.Oid) *query {
+func (q *query) withArgTypes(argTypes []nodes.TypeName) *query {
 	q.argTypes = argTypes
 	return q
 }
@@ -208,9 +208,9 @@ func ParamsFromContext(ctx context.Context) [][]byte {
 	return ctx.Value(paramsCtxKey).([][]byte)
 }
 
-// ArgTypesFromContext returns the param OIDs array as saved in the given context
-func ArgTypesFromContext(ctx context.Context) []nodes.Oid {
-	return ctx.Value(argTypesCtxKey).([]nodes.Oid)
+// ArgTypesFromContext returns the param types array as saved in the given context
+func ArgTypesFromContext(ctx context.Context) []nodes.TypeName {
+	return ctx.Value(argTypesCtxKey).([]nodes.TypeName)
 }
 
 // implements the CommandComplete tag according to the spec as described at the

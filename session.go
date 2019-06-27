@@ -251,13 +251,13 @@ func (s *session) execute(t *protocol.Transport, portalName string, maxRows uint
 	if portal.result == nil {
 		q := createQuery(stmt.rawSQL, stmt.prepareStmt.Query)
 		if len(portal.params) > 0 {
-			argTypes := make([]nodes.Oid, len(stmt.prepareStmt.Argtypes.Items))
+			argTypes := make([]nodes.TypeName, len(stmt.prepareStmt.Argtypes.Items))
 			for i, at := range stmt.prepareStmt.Argtypes.Items {
 				tn, ok := at.(nodes.TypeName)
 				if !ok {
 					return nil, fmt.Errorf("expected node of type 'TypeName', got %T", at)
 				}
-				argTypes[i] = tn.TypeOid
+				argTypes[i] = tn
 			}
 			q.withParams(portal.params).withArgTypes(argTypes)
 		}
