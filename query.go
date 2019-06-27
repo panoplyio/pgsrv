@@ -71,13 +71,14 @@ func (cr *CommandResult) Tag() (string, error) {
 }
 
 type query struct {
-	sess    Session
-	queryer Queryer
-	execer  Execer
-	sql     string
-	ast     *parser.ParsetreeList
-	params  [][]byte
-	numCols int
+	sess     Session
+	queryer  Queryer
+	execer   Execer
+	sql      string
+	ast      *parser.ParsetreeList
+	argTypes []nodes.Oid
+	params   [][]byte
+	numCols  int
 }
 
 func parseQuery(sql string) (*query, error) {
@@ -107,6 +108,11 @@ func (q *query) withExecer(execer Execer) *query {
 	return q
 }
 
+func (q *query) withArgTypes(argTypes []nodes.Oid) *query {
+	q.argTypes = argTypes
+	return q
+}
+
 func (q *query) withParams(params [][]byte) *query {
 	q.params = params
 	return q
@@ -115,8 +121,11 @@ func (q *query) withParams(params [][]byte) *query {
 func (q *query) Run() (res []ResultTag, err error) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, sqlCtxKey, q.sql)
-	if q.params != nil {
+	if len(q.params) > 0 {
 		ctx = context.WithValue(ctx, paramsCtxKey, q.params)
+	}
+	if len(q.argTypes) > 0 {
+		ctx = context.WithValue(ctx, argTypesCtxKey, q.argTypes)
 	}
 
 	// execute all of the stmts

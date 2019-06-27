@@ -56,6 +56,7 @@ type Server interface {
 type ctxKey string
 
 const (
-	sqlCtxKey    ctxKey = "SQL"
-	paramsCtxKey ctxKey = "Params"
+	sqlCtxKey      ctxKey = "SQL"
+	paramsCtxKey   ctxKey = "Params"
+	argTypesCtxKey ctxKey = "ArgTypes"
 )
