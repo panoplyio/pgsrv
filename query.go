@@ -208,6 +208,11 @@ func ParamsFromContext(ctx context.Context) [][]byte {
 	return ctx.Value(paramsCtxKey).([][]byte)
 }
 
+// ArgTypesFromContext returns the param OIDs array as saved in the given context
+func ArgTypesFromContext(ctx context.Context) []nodes.Oid {
+	return ctx.Value(argTypesCtxKey).([]nodes.Oid)
+}
+
 // implements the CommandComplete tag according to the spec as described at the
 // link below. When there's no suitable tag according to the spec, "UPDATE" is
 // used instead.
