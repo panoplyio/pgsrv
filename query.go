@@ -10,6 +10,7 @@ import (
 	"io"
 )
 
+// Result is an interface that is used
 type Result interface {
 	driver.Result
 	ResultTag
@@ -22,14 +23,7 @@ type Cursor struct {
 	strings []string
 	types   []string
 	count   int
-}
-
-func (c *Cursor) LastInsertId() (i int64, err error) {
-	return
-}
-
-func (c *Cursor) RowsAffected() (i int64, err error) {
-	return
+	eof     bool
 }
 
 func (c *Cursor) Tag() (string, error) {
@@ -37,7 +31,7 @@ func (c *Cursor) Tag() (string, error) {
 }
 
 func (c *Cursor) Fetch(n int, w protocol.MessageWriter) (count int, err error) {
-	for count < n || n == 0 {
+	for (count < n || n == 0) && !c.eof {
 		err = c.rows.Next(c.row)
 		if err != nil {
 			break
@@ -58,6 +52,7 @@ func (c *Cursor) Fetch(n int, w protocol.MessageWriter) (count int, err error) {
 	c.count += count
 
 	if err == io.EOF {
+		c.eof = true
 		err = nil
 	}
 	return
@@ -108,7 +103,7 @@ func (q *query) withExecer(execer Execer) *query {
 	return q
 }
 
-func (q *query) Run() (res []Result, err error) {
+func (q *query) Run() (res []ResultTag, err error) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, sqlCtxKey, q.sql)
 
@@ -119,7 +114,7 @@ func (q *query) Run() (res []Result, err error) {
 			stmt = rawStmt.Stmt
 		}
 
-		var r Result
+		var r ResultTag
 		// determine if it's a query or command
 		switch v := stmt.(type) {
 		case nodes.PrepareStmt:

@@ -101,8 +101,15 @@ func (t *Transport) NextFrontendMessage() (msg pgproto3.FrontendMessage, ts Tran
 	return
 }
 
-func (t *Transport) readFrontendMessage() (pgproto3.FrontendMessage, error) {
-	return t.r.Receive()
+func (t *Transport) readFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
+	// we currently ignore flush because we did not implement any logic that affected by a flush message
+	for {
+		msg, err = t.r.Receive()
+		if _, ok := msg.(*pgproto3.Flush); !ok {
+			break
+		}
+	}
+	return
 }
 
 // Write writes the provided message to the client connection

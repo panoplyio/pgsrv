@@ -19,7 +19,7 @@ var allSessions sync.Map
 type portal struct {
 	srcPreparedStatement string
 	parameters           [][]byte
-	result               Result
+	result               ResultTag
 }
 
 type statement struct {
@@ -167,13 +167,15 @@ func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.Fron
 	var res []protocol.Message
 	switch v := msg.(type) {
 	case *pgproto3.Terminate:
-		s.Conn.Close()
-		return nil // client terminated intentionally
+		_ = s.Conn.Close()
+		return // client terminated intentionally
 	case *pgproto3.Query:
 		err = s.query(v.String, t)
 		if err != nil {
 			res = append(res, protocol.ParseComplete)
 		}
+		// postgres doesn't save unnamed statement after a simple query so we imitate this behaviour
+		delete(s.stmts, "")
 	case *pgproto3.Describe:
 		res, err = s.describe(v.ObjectType, v.Name)
 	case *pgproto3.Parse:
@@ -248,7 +250,7 @@ func (s *session) execute(t *protocol.Transport, portalName string, maxRows uint
 	}
 	if portal.result == nil {
 		q := createQuery(stmt.rawSql, stmt.prepareStmt.Query)
-		var results []Result
+		var results []ResultTag
 		results, err = q.withExecer(s.Server).
 			withQueryer(s.Server).
 			Run()
@@ -267,6 +269,10 @@ func (s *session) execute(t *protocol.Transport, portalName string, maxRows uint
 		//}
 		_, err = c.Fetch(int(maxRows), t)
 		if err != nil {
+			return
+		}
+		if !c.eof {
+			res = append(res, protocol.PortalSuspended)
 			return
 		}
 	}

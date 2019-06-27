@@ -36,6 +36,15 @@ type mockQueryer struct{}
 
 func (r *mockQueryer) Query(ctx context.Context, n pg_query.Node) (driver.Rows, error) {
 	rows := &mockRows{1, 0}
+	if selectStmt, ok := n.(pg_query.SelectStmt); ok {
+		if selectStmt.FromClause.Items != nil {
+			if rangeSubSelect, ok := selectStmt.FromClause.Items[0].(pg_query.RangeSubselect); ok {
+				if selectStmt, ok := rangeSubSelect.Subquery.(pg_query.SelectStmt); ok {
+					rows.rows = uint8(len(selectStmt.ValuesLists))
+				}
+			}
+		}
+	}
 	return rows, nil
 }
 

@@ -91,6 +91,9 @@ func CommandComplete(tag string) Message {
 	return msg
 }
 
+// PortalSuspended is sent when query was partially executed and row set has more rows for cursor to read
+var PortalSuspended = []byte{'s', 0, 0, 0, 4}
+
 // ErrorResponse is sent whenever error has occurred
 func ErrorResponse(err error) Message {
 	msg := []byte{'E', 0, 0, 0, 0}
