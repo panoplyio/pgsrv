@@ -194,6 +194,11 @@ func QueryFromContext(ctx context.Context) string {
 	return ctx.Value(sqlCtxKey).(string)
 }
 
+// ParamsFromContext returns the raw params array as saved in the given context
+func ParamsFromContext(ctx context.Context) [][]byte {
+	return ctx.Value(paramsCtxKey).([][]byte)
+}
+
 // implements the CommandComplete tag according to the spec as described at the
 // link below. When there's no suitable tag according to the spec, "UPDATE" is
 // used instead.
