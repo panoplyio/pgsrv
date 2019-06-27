@@ -10,12 +10,8 @@ import (
 	"io"
 )
 
-// Result is an interface that is used
-type Result interface {
-	driver.Result
-	ResultTag
-}
-
+// Cursor implements ResultTag and returns as a result of a query.
+// Cursor holds driver.Rows and allows fetching in batches or in full.
 type Cursor struct {
 	rows    driver.Rows
 	columns []string
@@ -26,10 +22,14 @@ type Cursor struct {
 	eof     bool
 }
 
+// Tag implements ResultTag
 func (c *Cursor) Tag() (string, error) {
 	return fmt.Sprintf("SELECT %d", c.count), nil
 }
 
+// Fetch retrieves next n rows from the saved result and writes a DataRow for every row retrieved.
+// Fetch return the amount of rows retrieved and an error if occurred. if n > available rows,
+// no error will be returned. if reached EOF, eof flag will be turned on for this Cursor.
 func (c *Cursor) Fetch(n int, w protocol.MessageWriter) (count int, err error) {
 	for (count < n || n == 0) && !c.eof {
 		err = c.rows.Next(c.row)
@@ -58,11 +58,14 @@ func (c *Cursor) Fetch(n int, w protocol.MessageWriter) (count int, err error) {
 	return
 }
 
+// CommandResult implements ResultTag and returns as a result of a command.
+// Cursor holds a tagger for default tagging.
 type CommandResult struct {
 	driver.Result
 	tagger ResultTag
 }
 
+// Tag implements ResultTag
 func (cr *CommandResult) Tag() (string, error) {
 	return cr.tagger.Tag()
 }
@@ -73,6 +76,7 @@ type query struct {
 	execer  Execer
 	sql     string
 	ast     *parser.ParsetreeList
+	params  [][]byte
 	numCols int
 }
 
@@ -103,9 +107,17 @@ func (q *query) withExecer(execer Execer) *query {
 	return q
 }
 
+func (q *query) withParams(params [][]byte) *query {
+	q.params = params
+	return q
+}
+
 func (q *query) Run() (res []ResultTag, err error) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, sqlCtxKey, q.sql)
+	if q.params != nil {
+		ctx = context.WithValue(ctx, paramsCtxKey, q.params)
+	}
 
 	// execute all of the stmts
 	for _, stmt := range q.ast.Statements {

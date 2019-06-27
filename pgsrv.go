@@ -56,7 +56,6 @@ type Server interface {
 type ctxKey string
 
 const (
-	sessionCtxKey ctxKey = "Session"
-	sqlCtxKey     ctxKey = "SQL"
-	astCtxKey     ctxKey = "AST"
+	sqlCtxKey    ctxKey = "SQL"
+	paramsCtxKey ctxKey = "Params"
 )

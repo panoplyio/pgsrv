@@ -18,12 +18,12 @@ var allSessions sync.Map
 
 type portal struct {
 	srcPreparedStatement string
-	parameters           [][]byte
+	params               [][]byte
 	result               ResultTag
 }
 
 type statement struct {
-	rawSql      string
+	rawSQL      string
 	prepareStmt *nodes.PrepareStmt
 }
 
@@ -249,7 +249,10 @@ func (s *session) execute(t *protocol.Transport, portalName string, maxRows uint
 		return
 	}
 	if portal.result == nil {
-		q := createQuery(stmt.rawSql, stmt.prepareStmt.Query)
+		q := createQuery(stmt.rawSQL, stmt.prepareStmt.Query)
+		if len(portal.params) > 0 {
+			q.withParams(portal.params)
+		}
 		var results []ResultTag
 		results, err = q.withExecer(s.Server).
 			withQueryer(s.Server).
@@ -263,10 +266,6 @@ func (s *session) execute(t *protocol.Transport, portalName string, maxRows uint
 	}
 
 	if c, ok := portal.result.(*Cursor); ok {
-		//err = t.Write(protocol.RowDescription(c.columns, c.types))
-		//if err != nil {
-		//	return
-		//}
 		_, err = c.Fetch(int(maxRows), t)
 		if err != nil {
 			return
@@ -331,7 +330,7 @@ func (s *session) prepare(name, sql string, paramOIDs []uint32) (res []protocol.
 	} else {
 		ps.Name = &name
 	}
-	s.storePreparedStatement(&statement{rawSql: sql, prepareStmt: &ps})
+	s.storePreparedStatement(&statement{rawSQL: sql, prepareStmt: &ps})
 	res = append(res, protocol.ParseComplete)
 	return
 }
@@ -369,7 +368,7 @@ func (s *session) bind(srcPreparedStmt, dstPortal string, parameters [][]byte) (
 	}
 	s.portals[dstPortal] = &portal{
 		srcPreparedStatement: srcPreparedStmt,
-		parameters:           parameters,
+		params:               parameters,
 	}
 	res = append(res, protocol.BindComplete)
 	return
