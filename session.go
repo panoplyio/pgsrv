@@ -148,9 +148,6 @@ func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.Fron
 			execer:    s.Server,
 		}
 		err = q.Run(s)
-		if err != nil {
-			res = append(res, protocol.ParseComplete)
-		}
 	case *pgproto3.Describe:
 		res, err = s.describe(msg.(*pgproto3.Describe))
 	case *pgproto3.Parse:
