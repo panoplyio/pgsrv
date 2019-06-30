@@ -242,7 +242,7 @@ func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Messa
 	switch describeMsg.ObjectType {
 	case protocol.DescribeStatement:
 		if ps, ok := s.stmts[describeMsg.Name]; !ok {
-			res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", describeMsg.Name)))
+			res = append(res, protocol.ErrorResponse(InvalidSqlStatementName(describeMsg.Name)))
 		} else {
 			var msg protocol.Message
 			msg, err = protocol.ParameterDescription(ps)
@@ -253,7 +253,7 @@ func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Messa
 			// TODO: add a RowDescription message. this will require access to the catalog
 		}
 	case protocol.DescribePortal:
-		err = fmt.Errorf("unsupported object type '%c'", describeMsg.ObjectType)
+		err = Unsupported("object type '%c'", describeMsg.ObjectType)
 	default:
 		err = fmt.Errorf("unrecognized object type '%c'", describeMsg.ObjectType)
 	}
