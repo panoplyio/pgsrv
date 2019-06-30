@@ -154,8 +154,8 @@ func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.Fron
 		res, err = s.prepare(v)
 	case *pgproto3.Bind:
 		res, err = s.bind(v)
-	case *pgproto3.Execute:
-		err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
+	default:
+		res = append(res, protocol.ErrorResponse(Unsupported("message type")))
 	}
 	for _, m := range res {
 		err = t.Write(m)
@@ -180,18 +180,6 @@ func (s *session) handleTransactionState(state protocol.TransactionState) {
 		s.pendingStmts = map[string]*nodes.PrepareStmt{}
 		s.portals = map[string]*portal{}
 	}
-}
-
-func (s *session) oidListToNames(list []uint32) ([]string, error) {
-	res := make([]string, len(list))
-	for i, o := range list {
-		dt, ok := s.ConnInfo.DataTypeForOID(pgtype.OID(o))
-		if !ok {
-			return nil, fmt.Errorf("failed to find type by oid = %d", o)
-		}
-		res[i] = dt.Name
-	}
-	return res, nil
 }
 
 func (s *session) prepare(parseMsg *pgproto3.Parse) (res []protocol.Message, err error) {
