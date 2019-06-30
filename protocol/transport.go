@@ -9,14 +9,14 @@ import (
 type TransactionState int
 
 const (
-	// TransactionEnded states that the current transaction has finished and has to commit
-	TransactionEnded TransactionState = 1 + iota
-	// TransactionFailed states that the current transaction has failed and has to roll-back
-	TransactionFailed
+	// NotInTransaction states that transaction is not active and operations should auto-commit
+	NotInTransaction TransactionState = 1 + iota
 	// InTransaction states that transaction is active and operations should not commit
 	InTransaction
-	// NotInTransaction states that transaction is not active and operations should auto-commit
-	NotInTransaction
+	// TransactionEnded states that the current transaction has finished and has to commit
+	TransactionEnded
+	// TransactionFailed states that the current transaction has failed and has to roll-back
+	TransactionFailed
 )
 
 // NewTransport creates a Transport
