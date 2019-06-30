@@ -149,11 +149,11 @@ func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.Fron
 		}
 		err = q.Run(s)
 	case *pgproto3.Describe:
-		res, err = s.describe(msg.(*pgproto3.Describe))
+		res, err = s.describe(v)
 	case *pgproto3.Parse:
-		res, err = s.prepare(msg.(*pgproto3.Parse))
+		res, err = s.prepare(v)
 	case *pgproto3.Bind:
-		res, err = s.bind(msg.(*pgproto3.Bind))
+		res, err = s.bind(v)
 	case *pgproto3.Execute:
 		err = t.Write(protocol.ErrorResponse(fmt.Errorf("not implemented")))
 	}
