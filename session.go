@@ -225,18 +225,6 @@ func (s *session) query(sql string, t *protocol.Transport) error {
 	return nil
 }
 
-func (s *session) oidListToNames(list []uint32) ([]string, error) {
-	res := make([]string, len(list))
-	for i, o := range list {
-		dt, ok := s.ConnInfo.DataTypeForOID(pgtype.OID(o))
-		if !ok {
-			return nil, fmt.Errorf("failed to find type by oid = %d", o)
-		}
-		res[i] = dt.Name
-	}
-	return res, nil
-}
-
 func (s *session) execute(t *protocol.Transport, portalName string, maxRows uint32) (res []protocol.Message, err error) {
 	portal, ok := s.portals[portalName]
 	if !ok {
@@ -324,7 +312,7 @@ func (s *session) prepare(name, sql string, paramOIDs []uint32) (res []protocol.
 			return
 		}
 		ps.Argtypes.Items[i] = nodes.TypeName{
-			TypeOid: nodes.Oid(p),
+			TypeOid: nodes.Oid(0),
 			Names: nodes.List{
 				Items: []nodes.Node{
 					nodes.String{Str: dt.Name},
