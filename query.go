@@ -33,7 +33,7 @@ func (q *query) Run(sess Session) error {
 	ctx = context.WithValue(ctx, sqlCtxKey, q.sql)
 	ctx = context.WithValue(ctx, astCtxKey, ast)
 
-	// execute all of the stmts
+	// execute all of the statements
 	for _, stmt := range ast.Statements {
 		rawStmt, isRaw := stmt.(nodes.RawStmt)
 		if isRaw {
@@ -48,6 +48,8 @@ func (q *query) Run(sess Session) error {
 			if ok {
 				// we just store the statement and don't do anything
 				s.storePreparedStatement(&v)
+			} else {
+				return Unsupported("prepared statements")
 			}
 		case nodes.SelectStmt, nodes.VariableShowStmt:
 			err = q.Query(ctx, stmt)
