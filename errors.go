@@ -134,9 +134,9 @@ func Unsupported(msg string, args ...interface{}) Err {
 	return &err{M: msg, C: "0A000", P: -1}
 }
 
-// InvalidSqlStatementName indicates that a referred statement name is
+// InvalidSQLStatementName indicates that a referred statement name is
 // unknown/missing to the server.
-func InvalidSqlStatementName(stmtName string) Err {
+func InvalidSQLStatementName(stmtName string) Err {
 	msg := fmt.Sprintf("prepared statement \"%s\" does not exist", stmtName)
 	return &err{M: msg, C: "26000", P: -1}
 }

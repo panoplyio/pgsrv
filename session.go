@@ -242,7 +242,7 @@ func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Messa
 	switch describeMsg.ObjectType {
 	case protocol.DescribeStatement:
 		if ps, ok := s.stmts[describeMsg.Name]; !ok {
-			res = append(res, protocol.ErrorResponse(InvalidSqlStatementName(describeMsg.Name)))
+			res = append(res, protocol.ErrorResponse(InvalidSQLStatementName(describeMsg.Name)))
 		} else {
 			var msg protocol.Message
 			msg, err = protocol.ParameterDescription(ps)
@@ -263,7 +263,7 @@ func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Messa
 func (s *session) bind(bindMsg *pgproto3.Bind) (res []protocol.Message, err error) {
 	_, exist := s.stmts[bindMsg.PreparedStatement]
 	if !exist {
-		res = append(res, protocol.ErrorResponse(InvalidSqlStatementName(bindMsg.PreparedStatement)))
+		res = append(res, protocol.ErrorResponse(InvalidSQLStatementName(bindMsg.PreparedStatement)))
 		return
 	}
 	s.portals[bindMsg.DestinationPortal] = &portal{
