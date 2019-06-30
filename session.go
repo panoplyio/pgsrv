@@ -263,7 +263,7 @@ func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Messa
 func (s *session) bind(bindMsg *pgproto3.Bind) (res []protocol.Message, err error) {
 	_, exist := s.stmts[bindMsg.PreparedStatement]
 	if !exist {
-		res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", bindMsg.PreparedStatement)))
+		res = append(res, protocol.ErrorResponse(InvalidSqlStatementName(bindMsg.PreparedStatement)))
 		return
 	}
 	s.portals[bindMsg.DestinationPortal] = &portal{
