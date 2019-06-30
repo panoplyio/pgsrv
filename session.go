@@ -194,14 +194,6 @@ func (s *session) oidListToNames(list []uint32) ([]string, error) {
 	return res, nil
 }
 
-func (s *session) storePreparedStatement(ps *nodes.PrepareStmt) {
-	name := ""
-	if ps.Name != nil {
-		name = *ps.Name
-	}
-	s.pendingStmts[name] = ps
-}
-
 func (s *session) prepare(parseMsg *pgproto3.Parse) (res []protocol.Message, err error) {
 	var tree parser.ParsetreeList
 	tree, err = parser.Parse(parseMsg.Query)
@@ -236,6 +228,14 @@ func (s *session) prepare(parseMsg *pgproto3.Parse) (res []protocol.Message, err
 	s.storePreparedStatement(&ps)
 	res = append(res, protocol.ParseComplete)
 	return
+}
+
+func (s *session) storePreparedStatement(ps *nodes.PrepareStmt) {
+	name := ""
+	if ps.Name != nil {
+		name = *ps.Name
+	}
+	s.pendingStmts[name] = ps
 }
 
 func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Message, err error) {
