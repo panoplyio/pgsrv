@@ -9,8 +9,10 @@ import (
 type TransactionState int
 
 const (
+	// TransactionUnknown is the default/unset value of this enum
+	TransactionUnknown TransactionState = iota
 	// NotInTransaction states that transaction is not active and operations should auto-commit
-	NotInTransaction TransactionState = 1 + iota
+	NotInTransaction
 	// InTransaction states that transaction is active and operations should not commit
 	InTransaction
 	// TransactionEnded states that the current transaction has finished and has to commit
@@ -45,36 +47,6 @@ func (t *Transport) endTransaction() (err error) {
 	return
 }
 
-func (t *Transport) affectTransaction(msg pgproto3.FrontendMessage) (ts TransactionState, err error) {
-	if t.transaction == nil {
-		switch msg.(type) {
-		case *pgproto3.Parse, *pgproto3.Bind, *pgproto3.Describe:
-			t.beginTransaction()
-			ts = InTransaction
-		default:
-			ts = NotInTransaction
-		}
-	} else {
-		if t.transaction.hasError() {
-			ts = TransactionFailed
-		}
-		switch msg.(type) {
-		case *pgproto3.Query, *pgproto3.Sync:
-			err = t.endTransaction()
-			if err != nil {
-				ts = TransactionFailed
-			} else if ts == 0 {
-				ts = TransactionEnded
-			}
-		default:
-			if ts == 0 {
-				ts = InTransaction
-			}
-		}
-	}
-	return
-}
-
 // NextFrontendMessage reads and returns a single message from the connection when available.
 // if within a transaction, the transaction will read from the connection,
 // otherwise a ReadyForQuery message will first be sent to the frontend and then reading
@@ -98,6 +70,36 @@ func (t *Transport) NextFrontendMessage() (msg pgproto3.FrontendMessage, ts Tran
 	}
 
 	ts, err = t.affectTransaction(msg)
+	return
+}
+
+func (t *Transport) affectTransaction(msg pgproto3.FrontendMessage) (ts TransactionState, err error) {
+	if t.transaction == nil {
+		switch msg.(type) {
+		case *pgproto3.Parse, *pgproto3.Bind, *pgproto3.Describe:
+			t.beginTransaction()
+			ts = InTransaction
+		default:
+			ts = NotInTransaction
+		}
+	} else {
+		if t.transaction.hasError() {
+			ts = TransactionFailed
+		}
+		switch msg.(type) {
+		case *pgproto3.Query, *pgproto3.Sync:
+			err = t.endTransaction()
+			if err != nil {
+				ts = TransactionFailed
+			} else if ts == TransactionUnknown {
+				ts = TransactionEnded
+			}
+		default:
+			if ts == TransactionUnknown {
+				ts = InTransaction
+			}
+		}
+	}
 	return
 }
 
