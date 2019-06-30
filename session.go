@@ -240,7 +240,7 @@ func (s *session) storePreparedStatement(ps *nodes.PrepareStmt) {
 
 func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Message, err error) {
 	switch describeMsg.ObjectType {
-	case 'S':
+	case protocol.DescribeStatement:
 		if ps, ok := s.stmts[describeMsg.Name]; !ok {
 			res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", describeMsg.Name)))
 		} else {
@@ -252,7 +252,7 @@ func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Messa
 			res = append(res, msg)
 			// TODO: add a RowDescription message. this will require access to the catalog
 		}
-	case 'P':
+	case protocol.DescribePortal:
 		err = fmt.Errorf("unsupported object type '%c'", describeMsg.ObjectType)
 	default:
 		err = fmt.Errorf("unrecognized object type '%c'", describeMsg.ObjectType)
