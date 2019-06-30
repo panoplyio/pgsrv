@@ -255,7 +255,7 @@ func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Messa
 	case protocol.DescribePortal:
 		err = Unsupported("object type '%c'", describeMsg.ObjectType)
 	default:
-		err = fmt.Errorf("unrecognized object type '%c'", describeMsg.ObjectType)
+		err = ProtocolViolation(fmt.Sprintf("invalid DESCRIBE message subtype '%c'", describeMsg.ObjectType))
 	}
 	return
 }
