@@ -141,6 +141,11 @@ func InvalidSqlStatementName(stmtName string) Err {
 	return &err{M: msg, C: "26000", P: -1}
 }
 
+// ProtocolViolation indicates that a provided typed message has an invalid value
+func ProtocolViolation(msg string) Err {
+	return &err{M: msg, C: "08P01", P: -1}
+}
+
 func fromErr(e error) *err {
 	err1, ok := e.(*err)
 	if ok {

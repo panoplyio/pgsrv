@@ -250,7 +250,7 @@ func (s *session) describe(describeMsg *pgproto3.Describe) (res []protocol.Messa
 				return
 			}
 			res = append(res, msg)
-			// TODO: add a RowDescription message. this will require access to the catalog
+			// TODO: add a RowDescription message. this will require access to the backend
 		}
 	case protocol.DescribePortal:
 		err = Unsupported("object type '%c'", describeMsg.ObjectType)
