@@ -168,6 +168,9 @@ func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.Fron
 
 func (s *session) handleTransactionState(state protocol.TransactionState) {
 	switch state {
+	case protocol.InTransaction, protocol.NotInTransaction:
+		// these states have no effect on session
+		break
 	case protocol.TransactionFailed, protocol.TransactionEnded:
 		if state == protocol.TransactionEnded {
 			for k, v := range s.pendingStmts {
