@@ -187,6 +187,7 @@ func (s *session) prepare(parseMsg *pgproto3.Parse) (res []protocol.Message, err
 	var tree parser.ParsetreeList
 	tree, err = parser.Parse(parseMsg.Query)
 	if err != nil {
+		res = append(res, protocol.ErrorResponse(SyntaxError(err.Error())))
 		return
 	}
 

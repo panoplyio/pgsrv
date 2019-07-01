@@ -146,6 +146,12 @@ func ProtocolViolation(msg string) Err {
 	return &err{M: msg, C: "08P01", P: -1}
 }
 
+// SyntaxError indicates that sent command is invalid
+func SyntaxError(msg string, args ...interface{}) Err {
+	msg = fmt.Sprintf(msg, args...)
+	return &err{M: msg, C: "42601", P: -1, S: "ERROR"}
+}
+
 func fromErr(e error) *err {
 	err1, ok := e.(*err)
 	if ok {

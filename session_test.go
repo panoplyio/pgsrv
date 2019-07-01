@@ -22,6 +22,7 @@ import (
 )
 
 var testStmtName = "test_stmt"
+var anotherTestStmtName = "test_stmt_2"
 
 func startupSeq() []pg_stories.Step {
 	startupMsg := pgproto3.StartupMessage{
@@ -77,13 +78,13 @@ func TestSession_handleFrontendMessage(t *testing.T) {
 	t.Run("unsupported message type", func(t *testing.T) {
 		f, b := net.Pipe()
 		frontend, err := pgproto3.NewFrontend(f, nil)
+		require.NoError(t, err)
 		go func() {
 			msg, err := frontend.Receive()
 			require.NoError(t, err)
 			require.IsType(t, msg, &pgproto3.ErrorResponse{})
 			require.Equal(t, "0A000", msg.(*pgproto3.ErrorResponse).Code)
 		}()
-		require.NoError(t, err)
 		transport := protocol.NewTransport(b)
 		sess := &session{}
 		err = sess.handleFrontendMessage(transport, &unhandledFrontendMessage{})
@@ -117,7 +118,7 @@ func TestSession_handleTransactionState(t *testing.T) {
 	t.Run("TransactionFailed", func(t *testing.T) {
 		sess := &session{
 			pendingStmts: map[string]*nodes.PrepareStmt{
-				testStmtName: {Name: &testStmtName},
+				testStmtName: {Name: &anotherTestStmtName},
 			},
 			stmts: map[string]*nodes.PrepareStmt{
 				testStmtName: {Name: &testStmtName},
@@ -130,11 +131,13 @@ func TestSession_handleTransactionState(t *testing.T) {
 		require.Empty(t, sess.pendingStmts)
 		require.Empty(t, sess.portals)
 		require.NotEmpty(t, sess.stmts)
+		require.Len(t, sess.stmts, 1)
+		require.NotNil(t, sess.stmts[testStmtName])
 	})
 	t.Run("TransactionEnded", func(t *testing.T) {
 		sess := &session{
 			pendingStmts: map[string]*nodes.PrepareStmt{
-				"2": {Name: &testStmtName},
+				"2": {Name: &anotherTestStmtName},
 			},
 			stmts: map[string]*nodes.PrepareStmt{
 				"1": {Name: &testStmtName},
@@ -148,11 +151,15 @@ func TestSession_handleTransactionState(t *testing.T) {
 		require.Empty(t, sess.portals)
 		require.NotEmpty(t, sess.stmts)
 		require.Len(t, sess.stmts, 2)
+		require.NotNil(t, sess.stmts["1"])
+		require.Equal(t, &testStmtName, sess.stmts["1"].Name)
+		require.NotNil(t, sess.stmts["2"])
+		require.Equal(t, &anotherTestStmtName, sess.stmts["2"].Name)
 	})
 	t.Run("InTransaction", func(t *testing.T) {
 		sess := &session{
 			pendingStmts: map[string]*nodes.PrepareStmt{
-				"2": {Name: &testStmtName},
+				"2": {Name: &anotherTestStmtName},
 			},
 			stmts: map[string]*nodes.PrepareStmt{
 				"1": {Name: &testStmtName},
@@ -164,12 +171,17 @@ func TestSession_handleTransactionState(t *testing.T) {
 		sess.handleTransactionState(protocol.InTransaction)
 		require.Len(t, sess.pendingStmts, 1)
 		require.Len(t, sess.stmts, 1)
+		require.NotNil(t, sess.stmts["1"])
+		require.Equal(t, &testStmtName, sess.stmts["1"].Name)
+		require.NotNil(t, sess.pendingStmts["2"])
+		require.Equal(t, &anotherTestStmtName, sess.pendingStmts["2"].Name)
 		require.Len(t, sess.portals, 1)
+		require.Equal(t, testStmtName, sess.portals[""].srcPreparedStatement)
 	})
 	t.Run("NotInTransaction", func(t *testing.T) {
 		sess := &session{
 			pendingStmts: map[string]*nodes.PrepareStmt{
-				"2": {Name: &testStmtName},
+				"2": {Name: &anotherTestStmtName},
 			},
 			stmts: map[string]*nodes.PrepareStmt{
 				"1": {Name: &testStmtName},
@@ -181,7 +193,12 @@ func TestSession_handleTransactionState(t *testing.T) {
 		sess.handleTransactionState(protocol.NotInTransaction)
 		require.Len(t, sess.pendingStmts, 1)
 		require.Len(t, sess.stmts, 1)
+		require.NotNil(t, sess.stmts["1"])
+		require.Equal(t, &testStmtName, sess.stmts["1"].Name)
+		require.NotNil(t, sess.pendingStmts["2"])
+		require.Equal(t, &anotherTestStmtName, sess.pendingStmts["2"].Name)
 		require.Len(t, sess.portals, 1)
+		require.Equal(t, testStmtName, sess.portals[""].srcPreparedStatement)
 	})
 }
 
@@ -224,7 +241,12 @@ func TestSession_prepare(t *testing.T) {
 			Query: query,
 		})
 		require.Error(t, err)
-		require.Len(t, msgs, 0)
+		require.Len(t, msgs, 1)
+		require.True(t, msgs[0].IsError())
+		errorRes, err := msgs[0].ErrorResponse()
+		require.NoError(t, err)
+		require.Equal(t, "42601", errorRes.Code)
+		require.Equal(t, "syntax error at or near \"invalid\"", errorRes.Message[0:33])
 		require.Nil(t, sess.pendingStmts[testStmtName])
 	})
 }
@@ -262,6 +284,10 @@ func TestSession_bind(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, msgs, 1)
 		require.True(t, msgs[0].IsError())
+		errorRes, err := msgs[0].ErrorResponse()
+		require.NoError(t, err)
+		require.Equal(t, "26000", errorRes.Code)
+		require.Equal(t, "prepared statement \"other\" does not exist", errorRes.Message[0:41])
 		require.Len(t, sess.portals, 0)
 	})
 }
