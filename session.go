@@ -171,9 +171,6 @@ func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.Fron
 		return // client terminated intentionally
 	case *pgproto3.Query:
 		err = s.query(v.String, t)
-		if err != nil {
-			res = append(res, protocol.ParseComplete)
-		}
 		// postgres doesn't save unnamed statement after a simple query so we imitate this behaviour
 		delete(s.stmts, "")
 	case *pgproto3.Describe:
@@ -184,6 +181,10 @@ func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.Fron
 		res, err = s.bind(v.PreparedStatement, v.DestinationPortal, v.Parameters)
 	case *pgproto3.Execute:
 		res, err = s.execute(t, v.Portal, v.MaxRows)
+	}
+	if err != nil {
+		err = t.Write(protocol.ErrorResponse(err))
+		return
 	}
 	for _, m := range res {
 		err = t.Write(m)
@@ -202,6 +203,9 @@ func (s *session) query(sql string, t *protocol.Transport) error {
 	results, err := q.withExecer(s.Server).
 		withQueryer(s.Server).
 		Run()
+	if err != nil {
+		return err
+	}
 
 	for _, res := range results {
 		if c, ok := res.(*Cursor); ok {
