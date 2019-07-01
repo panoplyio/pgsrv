@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/jackc/pgx/pgproto3"
+	"github.com/jackc/pgx/pgtype"
 	"github.com/lfittl/pg_query_go/nodes"
 	nodes "github.com/lfittl/pg_query_go/nodes"
 	"github.com/panoplyio/pg-stories"
@@ -185,7 +186,7 @@ func TestSession_handleTransactionState(t *testing.T) {
 }
 
 func TestSession_prepare(t *testing.T) {
-	t.Run("parses and stores statements from parse messages", func(t *testing.T) {
+	t.Run("parses and stores statements", func(t *testing.T) {
 		query := "SELECT 1"
 		sess := &session{pendingStmts: map[string]*nodes.PrepareStmt{}}
 		msgs, err := sess.prepare(&pgproto3.Parse{
@@ -196,6 +197,23 @@ func TestSession_prepare(t *testing.T) {
 		require.Len(t, msgs, 1)
 		require.Equal(t, protocol.Message(protocol.ParseComplete), msgs[0])
 		require.NotNil(t, sess.pendingStmts[testStmtName])
+	})
+	t.Run("parses and stores statements with parameters", func(t *testing.T) {
+		query := "SELECT $1"
+		sess := &session{pendingStmts: map[string]*nodes.PrepareStmt{}}
+		sess.ConnInfo = pgtype.NewConnInfo()
+		sess.ConnInfo.RegisterDataType(pgtype.DataType{Name: "test", OID: pgtype.OID(333), Value: &pgtype.GenericText{}})
+		msgs, err := sess.prepare(&pgproto3.Parse{
+			Name:          testStmtName,
+			Query:         query,
+			ParameterOIDs: []uint32{333},
+		})
+		require.NoError(t, err)
+		require.Len(t, msgs, 1)
+		require.Equal(t, protocol.Message(protocol.ParseComplete), msgs[0])
+		require.NotNil(t, sess.pendingStmts[testStmtName])
+		stmt := sess.pendingStmts[testStmtName]
+		require.Equal(t, nodes.Oid(333), stmt.Argtypes.Items[0].(nodes.TypeName).TypeOid)
 	})
 	t.Run("fails to parse invalid statements", func(t *testing.T) {
 		testStmtName := "test"
