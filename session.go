@@ -154,6 +154,7 @@ func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.Fron
 		res, err = s.prepare(v)
 	case *pgproto3.Bind:
 		res, err = s.bind(v)
+	case *pgproto3.Sync:
 	default:
 		res = append(res, protocol.ErrorResponse(Unsupported("message type")))
 	}
@@ -196,7 +197,8 @@ func (s *session) prepare(parseMsg *pgproto3.Parse) (res []protocol.Message, err
 	for i, p := range parseMsg.ParameterOIDs {
 		dt, ok := s.ConnInfo.DataTypeForOID(pgtype.OID(p))
 		if !ok {
-			err = fmt.Errorf("unrecognized OID: %d", p)
+			res = append(res, protocol.ErrorResponse(fmt.Errorf("cache lookup failed for type %d", p)))
+			return
 		}
 		ps.Argtypes.Items[i] = nodes.TypeName{
 			TypeOid: nodes.Oid(p),
