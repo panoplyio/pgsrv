@@ -134,6 +134,24 @@ func Unsupported(msg string, args ...interface{}) Err {
 	return &err{M: msg, C: "0A000", P: -1}
 }
 
+// InvalidSQLStatementName indicates that a referred statement name is
+// unknown/missing to the server.
+func InvalidSQLStatementName(stmtName string) Err {
+	msg := fmt.Sprintf("prepared statement \"%s\" does not exist", stmtName)
+	return &err{M: msg, C: "26000", P: -1}
+}
+
+// ProtocolViolation indicates that a provided typed message has an invalid value
+func ProtocolViolation(msg string) Err {
+	return &err{M: msg, C: "08P01", P: -1}
+}
+
+// SyntaxError indicates that sent command is invalid
+func SyntaxError(msg string, args ...interface{}) Err {
+	msg = fmt.Sprintf(msg, args...)
+	return &err{M: msg, C: "42601", P: -1, S: "ERROR"}
+}
+
 func fromErr(e error) *err {
 	err1, ok := e.(*err)
 	if ok {

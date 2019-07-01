@@ -1,5 +1,10 @@
 package protocol
 
+import (
+	"fmt"
+	"github.com/jackc/pgx/pgproto3"
+)
+
 // frontend message types
 const (
 	Terminate = 'X'
@@ -19,6 +24,22 @@ func (m Message) Type() byte {
 		b = m[0]
 	}
 	return b
+}
+
+// IsError determines if the message is an ErrorResponse
+func (m Message) IsError() bool {
+	return m.Type() == 'E'
+}
+
+// ErrorResponse parses message of type error and returns an object describes it
+func (m Message) ErrorResponse() (res *pgproto3.ErrorResponse, err error) {
+	if !m.IsError() {
+		err = fmt.Errorf("message is not an error message")
+		return
+	}
+	res = &pgproto3.ErrorResponse{}
+	err = res.Decode(m[4:])
+	return
 }
 
 // MessageReadWriter describes objects that handle client-server communication.

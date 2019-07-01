@@ -41,7 +41,16 @@ func (q *query) Run(sess Session) error {
 		}
 
 		// determine if it's a query or command
-		switch stmt.(type) {
+		switch v := stmt.(type) {
+		case nodes.PrepareStmt:
+			s, ok := sess.(*session)
+			// only session implementation is capable of storing prepared stmts
+			if ok {
+				// we just store the statement and don't do anything
+				s.storePreparedStatement(&v)
+			} else {
+				return Unsupported("prepared statements")
+			}
 		case nodes.SelectStmt, nodes.VariableShowStmt:
 			err = q.Query(ctx, stmt)
 		default:

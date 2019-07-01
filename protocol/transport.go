@@ -5,6 +5,22 @@ import (
 	"io"
 )
 
+// TransactionState is used as a return with every message read for commit and rollback implementation
+type TransactionState int
+
+const (
+	// TransactionUnknown is the default/unset value of this enum
+	TransactionUnknown TransactionState = iota
+	// NotInTransaction states that transaction is not active and operations should auto-commit
+	NotInTransaction
+	// InTransaction states that transaction is active and operations should not commit
+	InTransaction
+	// TransactionEnded states that the current transaction has finished and has to commit
+	TransactionEnded
+	// TransactionFailed states that the current transaction has failed and has to roll-back
+	TransactionFailed
+)
+
 // NewTransport creates a Transport
 func NewTransport(rw io.ReadWriter) *Transport {
 	b, _ := pgproto3.NewBackend(rw, nil)
@@ -38,33 +54,52 @@ func (t *Transport) endTransaction() (err error) {
 //
 // NextFrontendMessage expects to be called only after a call to Handshake without an error response
 // otherwise, an error is returned
-func (t *Transport) NextFrontendMessage() (msg pgproto3.FrontendMessage, err error) {
-	if t.transaction != nil {
-		msg, err = t.transaction.NextFrontendMessage()
-	} else {
+func (t *Transport) NextFrontendMessage() (msg pgproto3.FrontendMessage, ts TransactionState, err error) {
+	if t.transaction == nil {
 		// when not in transaction, client waits for ReadyForQuery before sending next message
 		err = t.Write(ReadyForQuery)
 		if err != nil {
 			return
 		}
 		msg, err = t.readFrontendMessage()
+	} else {
+		msg, err = t.transaction.NextFrontendMessage()
 	}
 	if err != nil {
 		return
 	}
 
+	ts, err = t.affectTransaction(msg)
+	return
+}
+
+func (t *Transport) affectTransaction(msg pgproto3.FrontendMessage) (ts TransactionState, err error) {
 	if t.transaction == nil {
 		switch msg.(type) {
 		case *pgproto3.Parse, *pgproto3.Bind, *pgproto3.Describe:
 			t.beginTransaction()
+			ts = InTransaction
+		default:
+			ts = NotInTransaction
 		}
 	} else {
+		if t.transaction.hasError() {
+			ts = TransactionFailed
+		}
 		switch msg.(type) {
 		case *pgproto3.Query, *pgproto3.Sync:
 			err = t.endTransaction()
+			if err != nil {
+				ts = TransactionFailed
+			} else if ts == TransactionUnknown {
+				ts = TransactionEnded
+			}
+		default:
+			if ts == TransactionUnknown {
+				ts = InTransaction
+			}
 		}
 	}
-
 	return
 }
 
