@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"fmt"
 	"github.com/jackc/pgx/pgio"
 	"github.com/jackc/pgx/pgproto3"
 	nodes "github.com/lfittl/pg_query_go/nodes"
@@ -13,6 +12,12 @@ var ParseComplete = []byte{'1', 0, 0, 0, 4}
 // BindComplete is sent when backend prepared a portal and finished planning the query
 var BindComplete = []byte{'2', 0, 0, 0, 4}
 
+// Describe message object types
+const (
+	DescribeStatement = 'S'
+	DescribePortal    = 'P'
+)
+
 // ParameterDescription is sent when backend received Describe message from frontend
 // with ObjectType = 'S' - requesting to describe prepared statement with a provided name
 func ParameterDescription(ps *nodes.PrepareStmt) (Message, error) {
@@ -22,11 +27,7 @@ func ParameterDescription(ps *nodes.PrepareStmt) (Message, error) {
 
 	res = pgio.AppendUint16(res, uint16(len(ps.Argtypes.Items)))
 	for _, v := range ps.Argtypes.Items {
-		p, ok := v.(nodes.TypeName)
-		if !ok {
-			return nil, fmt.Errorf("expected node of type 'TypeName', got %T", p)
-		}
-		res = pgio.AppendUint32(res, uint32(p.TypeOid))
+		res = pgio.AppendUint32(res, uint32(v.(nodes.TypeName).TypeOid))
 	}
 
 	pgio.SetInt32(res[sp:], int32(len(res[sp:])))

@@ -140,18 +140,11 @@ func (s *session) Serve() error {
 	}
 }
 
-func (s *session) getPreparedStmt(name string) *statement {
-	if stmt, ok := s.pendingStmts[name]; ok {
-		return stmt
-	}
-	if stmt, ok := s.stmts[name]; ok {
-		return stmt
-	}
-	return nil
-}
-
 func (s *session) handleTransactionState(state protocol.TransactionState) {
 	switch state {
+	case protocol.InTransaction, protocol.NotInTransaction:
+		// these states have no effect on session
+		break
 	case protocol.TransactionFailed, protocol.TransactionEnded:
 		if state == protocol.TransactionEnded {
 			for k, v := range s.pendingStmts {
@@ -181,6 +174,10 @@ func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.Fron
 		res, err = s.bind(v.PreparedStatement, v.DestinationPortal, v.Parameters)
 	case *pgproto3.Execute:
 		res, err = s.execute(t, v.Portal, v.MaxRows)
+	case *pgproto3.Sync:
+	default:
+		res = append(res, protocol.ErrorResponse(Unsupported("message type")))
+
 	}
 	if err != nil {
 		err = t.Write(protocol.ErrorResponse(err))
@@ -193,6 +190,16 @@ func (s *session) handleFrontendMessage(t *protocol.Transport, msg pgproto3.Fron
 		}
 	}
 	return
+}
+
+func (s *session) getPreparedStmt(name string) *statement {
+	if stmt, ok := s.pendingStmts[name]; ok {
+		return stmt
+	}
+	if stmt, ok := s.stmts[name]; ok {
+		return stmt
+	}
+	return nil
 }
 
 func (s *session) query(sql string, t *protocol.Transport) error {
@@ -232,12 +239,12 @@ func (s *session) query(sql string, t *protocol.Transport) error {
 func (s *session) execute(t *protocol.Transport, portalName string, maxRows uint32) (res []protocol.Message, err error) {
 	portal, ok := s.portals[portalName]
 	if !ok {
-		res = append(res, protocol.ErrorResponse(fmt.Errorf("portal %s not exist", portalName)))
+		res = append(res, protocol.ErrorResponse(InvalidCursorName(portalName)))
 		return
 	}
 	stmt := s.getPreparedStmt(portal.srcPreparedStatement)
 	if stmt == nil {
-		res = append(res, protocol.ErrorResponse(fmt.Errorf("statement %s not exist", portal.srcPreparedStatement)))
+		res = append(res, protocol.ErrorResponse(InvalidSQLStatementName(portal.srcPreparedStatement)))
 		return
 	}
 	if portal.result == nil {
@@ -245,11 +252,7 @@ func (s *session) execute(t *protocol.Transport, portalName string, maxRows uint
 		if len(portal.params) > 0 {
 			argTypes := make([]nodes.TypeName, len(stmt.prepareStmt.Argtypes.Items))
 			for i, at := range stmt.prepareStmt.Argtypes.Items {
-				tn, ok := at.(nodes.TypeName)
-				if !ok {
-					return nil, fmt.Errorf("expected node of type 'TypeName', got %T", at)
-				}
-				argTypes[i] = tn
+				argTypes[i] = at.(nodes.TypeName)
 			}
 			q.withParams(portal.params).withArgTypes(argTypes)
 		}
@@ -312,7 +315,7 @@ func (s *session) prepare(name, sql string, paramOIDs []uint32) (res []protocol.
 	for i, p := range paramOIDs {
 		dt, ok := s.ConnInfo.DataTypeForOID(pgtype.OID(p))
 		if !ok {
-			err = fmt.Errorf("unrecognized OID: %d", p)
+			res = append(res, protocol.ErrorResponse(fmt.Errorf("cache lookup failed for type %d", p)))
 			return
 		}
 		ps.Argtypes.Items[i] = nodes.TypeName{
@@ -337,10 +340,10 @@ func (s *session) prepare(name, sql string, paramOIDs []uint32) (res []protocol.
 
 func (s *session) describe(objectType byte, objectName string) (res []protocol.Message, err error) {
 	switch objectType {
-	case 'S':
+	case protocol.DescribeStatement:
 		stmt := s.getPreparedStmt(objectName)
 		if stmt == nil {
-			res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", objectName)))
+			res = append(res, protocol.ErrorResponse(InvalidSQLStatementName(objectName)))
 		} else {
 			var msg protocol.Message
 			msg, err = protocol.ParameterDescription(stmt.prepareStmt)
@@ -351,11 +354,11 @@ func (s *session) describe(objectType byte, objectName string) (res []protocol.M
 			// TODO: add a real RowDescription message. this will require access to the catalog
 			res = append(res, protocol.RowDescription(nil, nil))
 		}
-	case 'P':
+	case protocol.DescribePortal:
 		// TODO: add a real RowDescription message. this will require access to the catalog
 		res = append(res, protocol.RowDescription(nil, nil))
 	default:
-		err = fmt.Errorf("unrecognized object type '%c'", objectType)
+		err = ProtocolViolation(fmt.Sprintf("invalid DESCRIBE message subtype '%c'", objectType))
 	}
 	return
 }
@@ -363,7 +366,7 @@ func (s *session) describe(objectType byte, objectName string) (res []protocol.M
 func (s *session) bind(srcPreparedStmt, dstPortal string, parameters [][]byte) (res []protocol.Message, err error) {
 	stmt := s.getPreparedStmt(srcPreparedStmt)
 	if stmt == nil {
-		res = append(res, protocol.ErrorResponse(fmt.Errorf("prepared statement %s not exist", srcPreparedStmt)))
+		res = append(res, protocol.ErrorResponse(InvalidSQLStatementName(srcPreparedStmt)))
 		return
 	}
 	s.portals[dstPortal] = &portal{
