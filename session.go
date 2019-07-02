@@ -298,6 +298,7 @@ func (s *session) prepare(name, sql string, paramOIDs []uint32) (res []protocol.
 	var tree parser.ParsetreeList
 	tree, err = parser.Parse(sql)
 	if err != nil {
+		res = append(res, protocol.ErrorResponse(SyntaxError(err.Error())))
 		return
 	}
 

@@ -113,24 +113,35 @@ func TestSession_handleFrontendMessage(t *testing.T) {
 func TestSession_storePreparedStatement(t *testing.T) {
 	t.Run("stores provided statement", func(t *testing.T) {
 		query := "bar"
-		sess := &session{pendingStmts: map[string]*nodes.PrepareStmt{}}
-		sess.storePreparedStatement(&nodes.PrepareStmt{
-			Name:  &testStmtName,
-			Query: nodes.String{Str: query},
+		sess := &session{pendingStmts: map[string]*statement{}}
+		sess.storePreparedStatement(&statement{
+			prepareStmt: &nodes.PrepareStmt{
+				Name:  &testStmtName,
+				Query: nodes.String{Str: query},
+			},
+			rawSQL: query,
 		})
 		require.NotNil(t, sess.pendingStmts[testStmtName])
-		require.Equal(t, query, sess.pendingStmts[testStmtName].Query.(nodes.String).Str)
+		require.Equal(t, query, sess.pendingStmts[testStmtName].rawSQL)
 	})
 }
 
 func TestSession_handleTransactionState(t *testing.T) {
 	t.Run("TransactionFailed", func(t *testing.T) {
 		sess := &session{
-			pendingStmts: map[string]*nodes.PrepareStmt{
-				testStmtName: {Name: &anotherTestStmtName},
+			pendingStmts: map[string]*statement{
+				anotherTestStmtName: {
+					prepareStmt: &nodes.PrepareStmt{
+						Name: &anotherTestStmtName,
+					},
+				},
 			},
-			stmts: map[string]*nodes.PrepareStmt{
-				testStmtName: {Name: &testStmtName},
+			stmts: map[string]*statement{
+				testStmtName: {
+					prepareStmt: &nodes.PrepareStmt{
+						Name: &testStmtName,
+					},
+				},
 			},
 			portals: map[string]*portal{
 				"": {srcPreparedStatement: testStmtName},
@@ -145,11 +156,19 @@ func TestSession_handleTransactionState(t *testing.T) {
 	})
 	t.Run("TransactionEnded", func(t *testing.T) {
 		sess := &session{
-			pendingStmts: map[string]*nodes.PrepareStmt{
-				"2": {Name: &anotherTestStmtName},
+			pendingStmts: map[string]*statement{
+				"2": {
+					prepareStmt: &nodes.PrepareStmt{
+						Name: &anotherTestStmtName,
+					},
+				},
 			},
-			stmts: map[string]*nodes.PrepareStmt{
-				"1": {Name: &testStmtName},
+			stmts: map[string]*statement{
+				"1": {
+					prepareStmt: &nodes.PrepareStmt{
+						Name: &testStmtName,
+					},
+				},
 			},
 			portals: map[string]*portal{
 				"": {srcPreparedStatement: testStmtName},
@@ -161,17 +180,25 @@ func TestSession_handleTransactionState(t *testing.T) {
 		require.NotEmpty(t, sess.stmts)
 		require.Len(t, sess.stmts, 2)
 		require.NotNil(t, sess.stmts["1"])
-		require.Equal(t, &testStmtName, sess.stmts["1"].Name)
+		require.Equal(t, &testStmtName, sess.stmts["1"].prepareStmt.Name)
 		require.NotNil(t, sess.stmts["2"])
-		require.Equal(t, &anotherTestStmtName, sess.stmts["2"].Name)
+		require.Equal(t, &anotherTestStmtName, sess.stmts["2"].prepareStmt.Name)
 	})
 	t.Run("InTransaction", func(t *testing.T) {
 		sess := &session{
-			pendingStmts: map[string]*nodes.PrepareStmt{
-				"2": {Name: &anotherTestStmtName},
+			pendingStmts: map[string]*statement{
+				"2": {
+					prepareStmt: &nodes.PrepareStmt{
+						Name: &anotherTestStmtName,
+					},
+				},
 			},
-			stmts: map[string]*nodes.PrepareStmt{
-				"1": {Name: &testStmtName},
+			stmts: map[string]*statement{
+				"1": {
+					prepareStmt: &nodes.PrepareStmt{
+						Name: &testStmtName,
+					},
+				},
 			},
 			portals: map[string]*portal{
 				"": {srcPreparedStatement: testStmtName},
@@ -181,19 +208,27 @@ func TestSession_handleTransactionState(t *testing.T) {
 		require.Len(t, sess.pendingStmts, 1)
 		require.Len(t, sess.stmts, 1)
 		require.NotNil(t, sess.stmts["1"])
-		require.Equal(t, &testStmtName, sess.stmts["1"].Name)
+		require.Equal(t, &testStmtName, sess.stmts["1"].prepareStmt.Name)
 		require.NotNil(t, sess.pendingStmts["2"])
-		require.Equal(t, &anotherTestStmtName, sess.pendingStmts["2"].Name)
+		require.Equal(t, &anotherTestStmtName, sess.pendingStmts["2"].prepareStmt.Name)
 		require.Len(t, sess.portals, 1)
 		require.Equal(t, testStmtName, sess.portals[""].srcPreparedStatement)
 	})
 	t.Run("NotInTransaction", func(t *testing.T) {
 		sess := &session{
-			pendingStmts: map[string]*nodes.PrepareStmt{
-				"2": {Name: &anotherTestStmtName},
+			pendingStmts: map[string]*statement{
+				"2": {
+					prepareStmt: &nodes.PrepareStmt{
+						Name: &anotherTestStmtName,
+					},
+				},
 			},
-			stmts: map[string]*nodes.PrepareStmt{
-				"1": {Name: &testStmtName},
+			stmts: map[string]*statement{
+				"1": {
+					prepareStmt: &nodes.PrepareStmt{
+						Name: &testStmtName,
+					},
+				},
 			},
 			portals: map[string]*portal{
 				"": {srcPreparedStatement: testStmtName},
@@ -203,9 +238,9 @@ func TestSession_handleTransactionState(t *testing.T) {
 		require.Len(t, sess.pendingStmts, 1)
 		require.Len(t, sess.stmts, 1)
 		require.NotNil(t, sess.stmts["1"])
-		require.Equal(t, &testStmtName, sess.stmts["1"].Name)
+		require.Equal(t, &testStmtName, sess.stmts["1"].prepareStmt.Name)
 		require.NotNil(t, sess.pendingStmts["2"])
-		require.Equal(t, &anotherTestStmtName, sess.pendingStmts["2"].Name)
+		require.Equal(t, &anotherTestStmtName, sess.pendingStmts["2"].prepareStmt.Name)
 		require.Len(t, sess.portals, 1)
 		require.Equal(t, testStmtName, sess.portals[""].srcPreparedStatement)
 	})
@@ -214,11 +249,8 @@ func TestSession_handleTransactionState(t *testing.T) {
 func TestSession_prepare(t *testing.T) {
 	t.Run("parses and stores statements", func(t *testing.T) {
 		query := "SELECT 1"
-		sess := &session{pendingStmts: map[string]*nodes.PrepareStmt{}}
-		msgs, err := sess.prepare(&pgproto3.Parse{
-			Name:  testStmtName,
-			Query: query,
-		})
+		sess := &session{pendingStmts: map[string]*statement{}}
+		msgs, err := sess.prepare(testStmtName, query, nil)
 		require.NoError(t, err)
 		require.Len(t, msgs, 1)
 		require.Equal(t, protocol.Message(protocol.ParseComplete), msgs[0])
@@ -226,36 +258,31 @@ func TestSession_prepare(t *testing.T) {
 	})
 	t.Run("parses and stores statements with parameters", func(t *testing.T) {
 		query := "SELECT $1"
-		sess := &session{pendingStmts: map[string]*nodes.PrepareStmt{}}
+		sess := &session{pendingStmts: map[string]*statement{}}
 		sess.ConnInfo = pgtype.NewConnInfo()
 		sess.ConnInfo.RegisterDataType(pgtype.DataType{Name: "test", OID: pgtype.OID(333), Value: &pgtype.GenericText{}})
-		msgs, err := sess.prepare(&pgproto3.Parse{
-			Name:          testStmtName,
-			Query:         query,
-			ParameterOIDs: []uint32{333},
-		})
+		msgs, err := sess.prepare(testStmtName, query, []uint32{333})
 		require.NoError(t, err)
 		require.Len(t, msgs, 1)
 		require.Equal(t, protocol.Message(protocol.ParseComplete), msgs[0])
 		require.NotNil(t, sess.pendingStmts[testStmtName])
 		stmt := sess.pendingStmts[testStmtName]
-		require.Equal(t, nodes.Oid(333), stmt.Argtypes.Items[0].(nodes.TypeName).TypeOid)
+		require.Equal(t, nodes.Oid(0), stmt.prepareStmt.Argtypes.Items[0].(nodes.TypeName).TypeOid)
+		require.Len(t, stmt.prepareStmt.Argtypes.Items[0].(nodes.TypeName).Names.Items, 1)
+		require.Equal(t, nodes.String{Str: "test"}, stmt.prepareStmt.Argtypes.Items[0].(nodes.TypeName).Names.Items[0])
 	})
 	t.Run("fails to parse invalid statements", func(t *testing.T) {
 		testStmtName := "test"
 		query := "invalid"
-		sess := &session{pendingStmts: map[string]*nodes.PrepareStmt{}}
-		msgs, err := sess.prepare(&pgproto3.Parse{
-			Name:  testStmtName,
-			Query: query,
-		})
+		sess := &session{pendingStmts: map[string]*statement{}}
+		msgs, err := sess.prepare(testStmtName, query, nil)
 		require.Error(t, err)
 		require.Len(t, msgs, 1)
 		require.True(t, msgs[0].IsError())
 		errorRes, err := msgs[0].ErrorResponse()
 		require.NoError(t, err)
 		require.Equal(t, "42601", errorRes.Code)
-		require.Equal(t, "syntax error at or near \"invalid\"", errorRes.Message[0:33])
+		require.Equal(t, "syntax error at or near \"invalid\"", errorRes.Message)
 		require.Nil(t, sess.pendingStmts[testStmtName])
 	})
 }
@@ -263,16 +290,17 @@ func TestSession_prepare(t *testing.T) {
 func TestSession_bind(t *testing.T) {
 	query := "SELECT 1"
 	t.Run("binds a portal", func(t *testing.T) {
-		sess := &session{pendingStmts: map[string]*nodes.PrepareStmt{}, portals: map[string]*portal{}}
-		sess.storePreparedStatement(&nodes.PrepareStmt{
-			Name:  &testStmtName,
-			Query: nodes.String{Str: query},
+		sess := &session{pendingStmts: map[string]*statement{}, portals: map[string]*portal{}}
+		sess.storePreparedStatement(&statement{
+			prepareStmt: &nodes.PrepareStmt{
+				Name:  &testStmtName,
+				Query: nodes.String{Str: query},
+			},
+			rawSQL: query,
 		})
 		// temporary hack for the test. transaction logic will be implemented on the next PR
 		sess.stmts = sess.pendingStmts
-		msgs, err := sess.bind(&pgproto3.Bind{
-			PreparedStatement: testStmtName,
-		})
+		msgs, err := sess.bind(testStmtName, "", nil)
 		require.NoError(t, err)
 		require.Len(t, msgs, 1)
 		require.Equal(t, protocol.Message(protocol.BindComplete), msgs[0])
@@ -281,54 +309,55 @@ func TestSession_bind(t *testing.T) {
 		require.Equal(t, testStmtName, sess.portals[""].srcPreparedStatement)
 	})
 	t.Run("fails if statement not found", func(t *testing.T) {
-		sess := &session{pendingStmts: map[string]*nodes.PrepareStmt{}, portals: map[string]*portal{}}
-		sess.storePreparedStatement(&nodes.PrepareStmt{
-			Name:  &testStmtName,
-			Query: nodes.String{Str: query},
+		sess := &session{pendingStmts: map[string]*statement{}, portals: map[string]*portal{}}
+		sess.storePreparedStatement(&statement{
+			prepareStmt: &nodes.PrepareStmt{
+				Name:  &testStmtName,
+				Query: nodes.String{Str: query},
+			},
+			rawSQL: query,
 		})
 		sess.stmts = sess.pendingStmts
-		msgs, err := sess.bind(&pgproto3.Bind{
-			PreparedStatement: "other",
-		})
+		msgs, err := sess.bind("other", "", nil)
 		require.NoError(t, err)
 		require.Len(t, msgs, 1)
 		require.True(t, msgs[0].IsError())
 		errorRes, err := msgs[0].ErrorResponse()
 		require.NoError(t, err)
 		require.Equal(t, "26000", errorRes.Code)
-		require.Equal(t, "prepared statement \"other\" does not exist", errorRes.Message[0:41])
+		require.Equal(t, "prepared statement \"other\" does not exist", errorRes.Message)
 		require.Len(t, sess.portals, 0)
 	})
 }
 
 func TestSession_describe(t *testing.T) {
 	query := "SELECT 1"
-	sess := &session{pendingStmts: map[string]*nodes.PrepareStmt{}, portals: map[string]*portal{}}
-	sess.storePreparedStatement(&nodes.PrepareStmt{
-		Name:  &testStmtName,
-		Query: nodes.String{Str: query},
-		Argtypes: nodes.List{
-			Items: []nodes.Node{
-				nodes.TypeName{
-					TypeOid: 16,
-					Names: nodes.List{
-						Items: []nodes.Node{
-							nodes.String{Str: "bool"},
+	sess := &session{pendingStmts: map[string]*statement{}, portals: map[string]*portal{}}
+	sess.storePreparedStatement(&statement{
+		prepareStmt: &nodes.PrepareStmt{
+			Name:  &testStmtName,
+			Query: nodes.String{Str: query},
+			Argtypes: nodes.List{
+				Items: []nodes.Node{
+					nodes.TypeName{
+						TypeOid: 16,
+						Names: nodes.List{
+							Items: []nodes.Node{
+								nodes.String{Str: "bool"},
+							},
 						},
 					},
 				},
 			},
 		},
+		rawSQL: query,
 	})
-	t.Run("parameter description of prepared statement", func(t *testing.T) {
+	t.Run("description of prepared statement", func(t *testing.T) {
 		// temporary hack for the test. transaction logic will be implemented on the next PR
 		sess.stmts = sess.pendingStmts
-		msgs, err := sess.describe(&pgproto3.Describe{
-			ObjectType: protocol.DescribeStatement,
-			Name:       testStmtName,
-		})
+		msgs, err := sess.describe(protocol.DescribeStatement, testStmtName)
 		require.NoError(t, err)
-		require.Len(t, msgs, 1)
+		require.Len(t, msgs, 2)
 		msg := pgproto3.ParameterDescription{}
 		err = msg.Decode(msgs[0][5:])
 		require.NoError(t, err)
